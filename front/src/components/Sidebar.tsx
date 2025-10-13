@@ -1,5 +1,5 @@
 import { Building2, LucideIcon } from "lucide-react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 interface MenuItem {
   id: string;
@@ -14,15 +14,11 @@ interface SidebarProps {
 
 export function Sidebar({ menuItems }: SidebarProps) {
   const location = useLocation();
-  const navigate = useNavigate();
 
-  const handleMenuClick = (item: MenuItem, e: React.MouseEvent) => {
-    e.preventDefault();
+  const handleMenuClick = (item: MenuItem) => {
     console.log("菜单点击:", item.label, "路径:", item.path);
     console.log("当前路径:", location.pathname);
-
-    // 使用 navigate 进行导航
-    navigate(item.path);
+    // Link 组件会自动处理导航，无需手动调用 navigate
   };
 
   return (
@@ -50,7 +46,7 @@ export function Sidebar({ menuItems }: SidebarProps) {
             <Link
               key={item.id}
               to={item.path}
-              onClick={(e) => handleMenuClick(item, e)}
+              onClick={() => handleMenuClick(item)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors cursor-pointer relative z-10 ${
                 isActive
                   ? "bg-blue-600 text-white"

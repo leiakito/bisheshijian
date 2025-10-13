@@ -34,7 +34,9 @@ import {
 import { Badge } from "./ui/badge";
 import { toast } from "sonner";
 import { createAnnouncement, getLatestAnnouncements, updateAnnouncement, deleteAnnouncement } from "../services/announcementService";
-import type { Announcement, AnnouncementRequest } from "../types/api";
+import { getFacilities, createFacility, updateFacility, deleteFacility } from "../services/facilityService";
+import { getParkingSpaces, createParkingSpace, updateParkingSpace, deleteParkingSpace } from "../services/parkingSpaceService";
+import type { Announcement, AnnouncementRequest, Facility, FacilityRequest, ParkingSpace, ParkingSpaceRequest } from "../types/api";
 
 export function CommunityManagement() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -42,11 +44,33 @@ export function CommunityManagement() {
   const [isEditAnnouncementOpen, setIsEditAnnouncementOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [facilities, setFacilities] = useState<Facility[]>([]);
   const [loading, setLoading] = useState(false);
+  const [facilitiesLoading, setFacilitiesLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
   const [deletingAnnouncement, setDeletingAnnouncement] = useState<Announcement | null>(null);
+
+  // 设施管理状态
+  const [isAddFacilityOpen, setIsAddFacilityOpen] = useState(false);
+  const [isEditFacilityOpen, setIsEditFacilityOpen] = useState(false);
+  const [isDeleteFacilityDialogOpen, setIsDeleteFacilityDialogOpen] = useState(false);
+  const [facilitySubmitting, setFacilitySubmitting] = useState(false);
+  const [facilityDeleting, setFacilityDeleting] = useState(false);
+  const [editingFacility, setEditingFacility] = useState<Facility | null>(null);
+  const [deletingFacility, setDeletingFacility] = useState<Facility | null>(null);
+
+  // 停车位管理状态
+  const [parkingSpaces, setParkingSpaces] = useState<ParkingSpace[]>([]);
+  const [parkingLoading, setParkingLoading] = useState(false);
+  const [isAddParkingOpen, setIsAddParkingOpen] = useState(false);
+  const [isEditParkingOpen, setIsEditParkingOpen] = useState(false);
+  const [isDeleteParkingDialogOpen, setIsDeleteParkingDialogOpen] = useState(false);
+  const [parkingSubmitting, setParkingSubmitting] = useState(false);
+  const [parkingDeleting, setParkingDeleting] = useState(false);
+  const [editingParking, setEditingParking] = useState<ParkingSpace | null>(null);
+  const [deletingParking, setDeletingParking] = useState<ParkingSpace | null>(null);
 
   // 表单状态
   const [formData, setFormData] = useState<AnnouncementRequest>({
@@ -55,9 +79,35 @@ export function CommunityManagement() {
     targetScope: "",
   });
 
+  // 设施表单状态
+  const [facilityFormData, setFacilityFormData] = useState<FacilityRequest>({
+    name: "",
+    type: "",
+    location: "",
+    status: "",
+    lastMaintenance: "",
+    nextMaintenance: "",
+    responsible: "",
+  });
+
+  // 停车位表单状态
+  const [parkingFormData, setParkingFormData] = useState<ParkingSpaceRequest>({
+    spaceNumber: "",
+    area: "",
+    type: "",
+    owner: "",
+    building: "",
+    plateNumber: "",
+    status: "",
+    startDate: "",
+    endDate: "",
+  });
+
   // 加载公告列表
   useEffect(() => {
     loadAnnouncements();
+    loadFacilities();
+    loadParkingSpaces();
   }, []);
 
   const loadAnnouncements = async () => {
@@ -70,6 +120,34 @@ export function CommunityManagement() {
       toast.error("加载公告列表失败");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 加载设施列表
+  const loadFacilities = async () => {
+    try {
+      setFacilitiesLoading(true);
+      const data = await getFacilities();
+      setFacilities(data);
+    } catch (error) {
+      console.error("加载设施失败:", error);
+      toast.error("加载设施列表失败");
+    } finally {
+      setFacilitiesLoading(false);
+    }
+  };
+
+  // 加载停车位列表
+  const loadParkingSpaces = async () => {
+    try {
+      setParkingLoading(true);
+      const data = await getParkingSpaces();
+      setParkingSpaces(data);
+    } catch (error) {
+      console.error("加载停车位失败:", error);
+      toast.error("加载停车位列表失败");
+    } finally {
+      setParkingLoading(false);
     }
   };
 
@@ -217,99 +295,345 @@ export function CommunityManagement() {
     }
   };
 
-  const facilities = [
-    {
-      id: "1",
-      name: "1号楼电梯1",
-      type: "电梯",
-      location: "1号楼1单元",
-      status: "正常",
-      lastMaintenance: "2024-12-15",
-      nextMaintenance: "2025-02-15",
-      responsible: "李师傅",
-    },
-    {
-      id: "2",
-      name: "1号楼电梯2",
-      type: "电梯",
-      location: "1号楼2单元",
-      status: "正常",
-      lastMaintenance: "2024-12-15",
-      nextMaintenance: "2025-02-15",
-      responsible: "李师傅",
-    },
-    {
-      id: "3",
-      name: "东门消防栓",
-      type: "消防设施",
-      location: "东门入口",
-      status: "正常",
-      lastMaintenance: "2024-11-20",
-      nextMaintenance: "2025-01-20",
-      responsible: "安保部",
-    },
-    {
-      id: "4",
-      name: "儿童游乐区",
-      type: "公共设施",
-      location: "中心花园",
-      status: "维护中",
-      lastMaintenance: "2025-01-05",
-      nextMaintenance: "2025-03-05",
-      responsible: "王师傅",
-    },
-  ];
+  // === 设施管理函数 ===
 
-  const parkingSpaces = [
-    {
-      id: "1",
-      spaceNumber: "A-101",
-      area: "A区",
-      type: "固定车位",
-      owner: "张三",
-      building: "1号楼2单元301",
-      plateNumber: "京A12345",
-      status: "已租用",
-      startDate: "2024-01-01",
-      endDate: "2025-12-31",
-    },
-    {
-      id: "2",
-      spaceNumber: "A-102",
-      area: "A区",
-      type: "固定车位",
-      owner: "李四",
-      building: "1号楼2单元302",
-      plateNumber: "京B67890",
-      status: "已租用",
-      startDate: "2024-03-01",
-      endDate: "2025-02-28",
-    },
-    {
-      id: "3",
-      spaceNumber: "A-103",
-      area: "A区",
-      type: "固定车位",
-      owner: "-",
-      building: "-",
-      plateNumber: "-",
-      status: "空闲",
-      startDate: "-",
-      endDate: "-",
-    },
-    {
-      id: "4",
-      spaceNumber: "B-201",
-      area: "B区",
-      type: "临时车位",
-      owner: "-",
-      building: "-",
-      plateNumber: "京C99999",
-      status: "临停",
-      startDate: "2025-01-11 08:30",
-      endDate: "-",
-    },
-  ];
+  // 处理设施表单字段变化
+  const handleFacilityFieldChange = (field: keyof FacilityRequest, value: string) => {
+    setFacilityFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  // 处理添加设施提交
+  const handleFacilitySubmit = async () => {
+    // 验证表单
+    if (!facilityFormData.name.trim()) {
+      toast.error("请输入设施名称");
+      return;
+    }
+    if (!facilityFormData.type.trim()) {
+      toast.error("请输入设施类型");
+      return;
+    }
+    if (!facilityFormData.location.trim()) {
+      toast.error("请输入设施位置");
+      return;
+    }
+    if (!facilityFormData.status.trim()) {
+      toast.error("请选择设施状态");
+      return;
+    }
+
+    console.log("=== 准备添加设施 ===");
+    console.log("表单数据:", facilityFormData);
+
+    try {
+      setFacilitySubmitting(true);
+      const result = await createFacility(facilityFormData);
+      console.log("=== 设施创建成功 ===");
+      console.log("返回数据:", result);
+      toast.success("设施添加成功");
+
+      // 关闭对话框
+      setIsAddFacilityOpen(false);
+
+      // 重置表单
+      setFacilityFormData({
+        name: "",
+        type: "",
+        location: "",
+        status: "",
+        lastMaintenance: "",
+        nextMaintenance: "",
+        responsible: "",
+      });
+
+      // 重新加载列表
+      loadFacilities();
+    } catch (error) {
+      console.error("添加设施失败:", error);
+      toast.error(error instanceof Error ? error.message : "添加设施失败");
+    } finally {
+      setFacilitySubmitting(false);
+    }
+  };
+
+  // 处理编辑设施按钮点击
+  const handleEditFacility = (facility: Facility) => {
+    setEditingFacility(facility);
+    setFacilityFormData({
+      name: facility.name,
+      type: facility.type,
+      location: facility.location,
+      status: facility.status,
+      lastMaintenance: facility.lastMaintenance || "",
+      nextMaintenance: facility.nextMaintenance || "",
+      responsible: facility.responsible || "",
+    });
+    setIsEditFacilityOpen(true);
+  };
+
+  // 处理更新设施提交
+  const handleFacilityUpdate = async () => {
+    if (!editingFacility?.id) {
+      toast.error("设施 ID 不存在");
+      return;
+    }
+
+    // 验证表单
+    if (!facilityFormData.name.trim()) {
+      toast.error("请输入设施名称");
+      return;
+    }
+    if (!facilityFormData.type.trim()) {
+      toast.error("请输入设施类型");
+      return;
+    }
+    if (!facilityFormData.location.trim()) {
+      toast.error("请输入设施位置");
+      return;
+    }
+    if (!facilityFormData.status.trim()) {
+      toast.error("请选择设施状态");
+      return;
+    }
+
+    console.log("=== 准备更新设施 ===");
+    console.log("设施ID:", editingFacility.id);
+    console.log("表单数据:", facilityFormData);
+
+    try {
+      setFacilitySubmitting(true);
+      const result = await updateFacility(editingFacility.id, facilityFormData);
+      console.log("=== 设施更新成功 ===");
+      console.log("返回数据:", result);
+      toast.success("设施更新成功");
+
+      // 关闭对话框
+      setIsEditFacilityOpen(false);
+      setEditingFacility(null);
+
+      // 重置表单
+      setFacilityFormData({
+        name: "",
+        type: "",
+        location: "",
+        status: "",
+        lastMaintenance: "",
+        nextMaintenance: "",
+        responsible: "",
+      });
+
+      // 重新加载列表
+      loadFacilities();
+    } catch (error) {
+      console.error("更新设施失败:", error);
+      toast.error(error instanceof Error ? error.message : "更新设施失败");
+    } finally {
+      setFacilitySubmitting(false);
+    }
+  };
+
+  // 处理删除设施按钮点击
+  const handleDeleteFacilityClick = (facility: Facility) => {
+    setDeletingFacility(facility);
+    setIsDeleteFacilityDialogOpen(true);
+  };
+
+  // 处理删除设施确认
+  const handleDeleteFacilityConfirm = async () => {
+    if (!deletingFacility?.id) {
+      toast.error("设施 ID 不存在");
+      return;
+    }
+
+    console.log("=== 准备删除设施 ===");
+    console.log("设施ID:", deletingFacility.id);
+    console.log("设施名称:", deletingFacility.name);
+
+    try {
+      setFacilityDeleting(true);
+      await deleteFacility(deletingFacility.id);
+      console.log("=== 设施删除成功 ===");
+      toast.success("设施删除成功");
+
+      // 关闭对话框
+      setIsDeleteFacilityDialogOpen(false);
+      setDeletingFacility(null);
+
+      // 重新加载列表
+      loadFacilities();
+    } catch (error) {
+      console.error("删除设施失败:", error);
+      toast.error(error instanceof Error ? error.message : "删除设施失败");
+    } finally {
+      setFacilityDeleting(false);
+    }
+  };
+
+  // === 停车位管理函数 ===
+
+  // 处理停车位表单字段变化
+  const handleParkingFieldChange = (field: keyof ParkingSpaceRequest, value: string) => {
+    setParkingFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  // 处理添加停车位提交
+  const handleParkingSubmit = async () => {
+    // 验证表单
+    if (!parkingFormData.spaceNumber.trim()) {
+      toast.error("请输入车位号");
+      return;
+    }
+    if (!parkingFormData.status.trim()) {
+      toast.error("请选择停车位状态");
+      return;
+    }
+
+    console.log("=== 准备添加停车位 ===");
+    console.log("表单数据:", parkingFormData);
+
+    try {
+      setParkingSubmitting(true);
+      const result = await createParkingSpace(parkingFormData);
+      console.log("=== 停车位创建成功 ===");
+      console.log("返回数据:", result);
+      toast.success("停车位添加成功");
+
+      // 关闭对话框
+      setIsAddParkingOpen(false);
+
+      // 重置表单
+      setParkingFormData({
+        spaceNumber: "",
+        area: "",
+        type: "",
+        owner: "",
+        building: "",
+        plateNumber: "",
+        status: "",
+        startDate: "",
+        endDate: "",
+      });
+
+      // 重新加载列表
+      loadParkingSpaces();
+    } catch (error) {
+      console.error("添加停车位失败:", error);
+      toast.error(error instanceof Error ? error.message : "添加停车位失败");
+    } finally {
+      setParkingSubmitting(false);
+    }
+  };
+
+  // 处理编辑停车位按钮点击
+  const handleEditParking = (parking: ParkingSpace) => {
+    setEditingParking(parking);
+    setParkingFormData({
+      spaceNumber: parking.spaceNumber,
+      area: parking.area || "",
+      type: parking.type || "",
+      owner: parking.owner || "",
+      building: parking.building || "",
+      plateNumber: parking.plateNumber || "",
+      status: parking.status,
+      startDate: parking.startDate || "",
+      endDate: parking.endDate || "",
+    });
+    setIsEditParkingOpen(true);
+  };
+
+  // 处理更新停车位提交
+  const handleParkingUpdate = async () => {
+    if (!editingParking?.id) {
+      toast.error("停车位 ID 不存在");
+      return;
+    }
+
+    // 验证表单
+    if (!parkingFormData.spaceNumber.trim()) {
+      toast.error("请输入车位号");
+      return;
+    }
+    if (!parkingFormData.status.trim()) {
+      toast.error("请选择停车位状态");
+      return;
+    }
+
+    console.log("=== 准备更新停车位 ===");
+    console.log("停车位ID:", editingParking.id);
+    console.log("表单数据:", parkingFormData);
+
+    try {
+      setParkingSubmitting(true);
+      const result = await updateParkingSpace(editingParking.id, parkingFormData);
+      console.log("=== 停车位更新成功 ===");
+      console.log("返回数据:", result);
+      toast.success("停车位更新成功");
+
+      // 关闭对话框
+      setIsEditParkingOpen(false);
+      setEditingParking(null);
+
+      // 重置表单
+      setParkingFormData({
+        spaceNumber: "",
+        area: "",
+        type: "",
+        owner: "",
+        building: "",
+        plateNumber: "",
+        status: "",
+        startDate: "",
+        endDate: "",
+      });
+
+      // 重新加载列表
+      loadParkingSpaces();
+    } catch (error) {
+      console.error("更新停车位失败:", error);
+      toast.error(error instanceof Error ? error.message : "更新停车位失败");
+    } finally {
+      setParkingSubmitting(false);
+    }
+  };
+
+  // 处理删除停车位按钮点击
+  const handleDeleteParkingClick = (parking: ParkingSpace) => {
+    setDeletingParking(parking);
+    setIsDeleteParkingDialogOpen(true);
+  };
+
+  // 处理删除停车位确认
+  const handleDeleteParkingConfirm = async () => {
+    if (!deletingParking?.id) {
+      toast.error("停车位 ID 不存在");
+      return;
+    }
+
+    console.log("=== 准备删除停车位 ===");
+    console.log("停车位ID:", deletingParking.id);
+    console.log("车位号:", deletingParking.spaceNumber);
+
+    try {
+      setParkingDeleting(true);
+      await deleteParkingSpace(deletingParking.id);
+      console.log("=== 停车位删除成功 ===");
+      toast.success("停车位删除成功");
+
+      // 关闭对话框
+      setIsDeleteParkingDialogOpen(false);
+      setDeletingParking(null);
+
+      // 重新加载列表
+      loadParkingSpaces();
+    } catch (error) {
+      console.error("删除停车位失败:", error);
+      toast.error(error instanceof Error ? error.message : "删除停车位失败");
+    } finally {
+      setParkingDeleting(false);
+    }
+  };
+
+
 
   const patrols = [
     {
@@ -616,70 +940,479 @@ export function CommunityManagement() {
 
         {/* 公共设施 */}
         <TabsContent value="facilities">
+          <div className="space-y-4">
+            <div className="flex justify-end">
+              <Dialog
+                open={isAddFacilityOpen}
+                onOpenChange={setIsAddFacilityOpen}
+              >
+                <DialogTrigger asChild>
+                  <Button className="bg-blue-600 hover:bg-blue-700">
+                    <Plus className="w-4 h-4 mr-2" />
+                    添加设施
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>添加新设施</DialogTitle>
+                    <DialogDescription>
+                      填写设施信息
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>设施名称 <span className="text-red-500">*</span></Label>
+                        <Input
+                          placeholder="如：1号楼电梯1"
+                          value={facilityFormData.name}
+                          onChange={(e) => handleFacilityFieldChange("name", e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>设施类型 <span className="text-red-500">*</span></Label>
+                        <Input
+                          placeholder="如：电梯、消防设施等"
+                          value={facilityFormData.type}
+                          onChange={(e) => handleFacilityFieldChange("type", e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>设施位置 <span className="text-red-500">*</span></Label>
+                        <Input
+                          placeholder="如：1号楼1单元"
+                          value={facilityFormData.location}
+                          onChange={(e) => handleFacilityFieldChange("location", e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>状态 <span className="text-red-500">*</span></Label>
+                        <Input
+                          placeholder="如：正常、维护中等"
+                          value={facilityFormData.status}
+                          onChange={(e) => handleFacilityFieldChange("status", e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>上次维护时间</Label>
+                        <Input
+                          type="date"
+                          value={facilityFormData.lastMaintenance}
+                          onChange={(e) => handleFacilityFieldChange("lastMaintenance", e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>下次维护时间</Label>
+                        <Input
+                          type="date"
+                          value={facilityFormData.nextMaintenance}
+                          onChange={(e) => handleFacilityFieldChange("nextMaintenance", e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>负责人</Label>
+                      <Input
+                        placeholder="请输入负责人姓名"
+                        value={facilityFormData.responsible}
+                        onChange={(e) => handleFacilityFieldChange("responsible", e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsAddFacilityOpen(false)}
+                      disabled={facilitySubmitting}
+                    >
+                      取消
+                    </Button>
+                    <Button
+                      className="bg-blue-600 hover:bg-blue-700"
+                      onClick={handleFacilitySubmit}
+                      disabled={facilitySubmitting}
+                    >
+                      {facilitySubmitting ? "添加中..." : "添加"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
           <Card>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>设施名称</TableHead>
-                  <TableHead>类型</TableHead>
-                  <TableHead>位置</TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead>上次维护</TableHead>
-                  <TableHead>下次维护</TableHead>
-                  <TableHead>负责人</TableHead>
-                  <TableHead>操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {facilities.map((facility) => (
-                  <TableRow key={facility.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Wrench className="w-4 h-4 text-gray-400" />
-                        {facility.name}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{facility.type}</Badge>
-                    </TableCell>
-                    <TableCell>{facility.location}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          facility.status === "正常" ? "default" : "secondary"
-                        }
-                      >
-                        {facility.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-gray-500">
-                      {facility.lastMaintenance}
-                    </TableCell>
-                    <TableCell className="text-sm text-gray-500">
-                      {facility.nextMaintenance}
-                    </TableCell>
-                    <TableCell>{facility.responsible}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button variant="ghost" size="sm">
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          维护记录
-                        </Button>
-                      </div>
-                    </TableCell>
+            {facilitiesLoading ? (
+              <div className="p-6">
+                <div className="text-center text-gray-500">加载中...</div>
+              </div>
+            ) : facilities.length === 0 ? (
+              <div className="p-6">
+                <div className="text-center text-gray-500">暂无设施数据</div>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>设施名称</TableHead>
+                    <TableHead>类型</TableHead>
+                    <TableHead>位置</TableHead>
+                    <TableHead>状态</TableHead>
+                    <TableHead>上次维护</TableHead>
+                    <TableHead>下次维护</TableHead>
+                    <TableHead>负责人</TableHead>
+                    <TableHead>操作</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {facilities.map((facility) => (
+                    <TableRow key={facility.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Wrench className="w-4 h-4 text-gray-400" />
+                          {facility.name}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{facility.type}</Badge>
+                      </TableCell>
+                      <TableCell>{facility.location}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            facility.status === "正常" ? "default" : "secondary"
+                          }
+                        >
+                          {facility.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-500">
+                        {facility.lastMaintenance || "-"}
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-500">
+                        {facility.nextMaintenance || "-"}
+                      </TableCell>
+                      <TableCell>{facility.responsible || "-"}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditFacility(facility)}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => handleDeleteFacilityClick(facility)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </Card>
+
+          {/* 编辑设施对话框 */}
+          <Dialog
+            open={isEditFacilityOpen}
+            onOpenChange={(open) => {
+              setIsEditFacilityOpen(open);
+              if (!open) {
+                setEditingFacility(null);
+                setFacilityFormData({
+                  name: "",
+                  type: "",
+                  location: "",
+                  status: "",
+                  lastMaintenance: "",
+                  nextMaintenance: "",
+                  responsible: "",
+                });
+              }
+            }}
+          >
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>编辑设施</DialogTitle>
+                <DialogDescription>
+                  修改设施信息
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>设施名称 <span className="text-red-500">*</span></Label>
+                    <Input
+                      placeholder="如：1号楼电梯1"
+                      value={facilityFormData.name}
+                      onChange={(e) => handleFacilityFieldChange("name", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>设施类型 <span className="text-red-500">*</span></Label>
+                    <Input
+                      placeholder="如：电梯、消防设施等"
+                      value={facilityFormData.type}
+                      onChange={(e) => handleFacilityFieldChange("type", e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>设施位置 <span className="text-red-500">*</span></Label>
+                    <Input
+                      placeholder="如：1号楼1单元"
+                      value={facilityFormData.location}
+                      onChange={(e) => handleFacilityFieldChange("location", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>状态 <span className="text-red-500">*</span></Label>
+                    <Input
+                      placeholder="如：正常、维护中等"
+                      value={facilityFormData.status}
+                      onChange={(e) => handleFacilityFieldChange("status", e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>上次维护时间</Label>
+                    <Input
+                      type="date"
+                      value={facilityFormData.lastMaintenance}
+                      onChange={(e) => handleFacilityFieldChange("lastMaintenance", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>下次维护时间</Label>
+                    <Input
+                      type="date"
+                      value={facilityFormData.nextMaintenance}
+                      onChange={(e) => handleFacilityFieldChange("nextMaintenance", e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>负责人</Label>
+                  <Input
+                    placeholder="请输入负责人姓名"
+                    value={facilityFormData.responsible}
+                    onChange={(e) => handleFacilityFieldChange("responsible", e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditFacilityOpen(false)}
+                  disabled={facilitySubmitting}
+                >
+                  取消
+                </Button>
+                <Button
+                  className="bg-blue-600 hover:bg-blue-700"
+                  onClick={handleFacilityUpdate}
+                  disabled={facilitySubmitting}
+                >
+                  {facilitySubmitting ? "保存中..." : "保存"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* 删除确认对话框 */}
+          <Dialog
+            open={isDeleteFacilityDialogOpen}
+            onOpenChange={(open) => {
+              setIsDeleteFacilityDialogOpen(open);
+              if (!open) {
+                setDeletingFacility(null);
+              }
+            }}
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>确认删除</DialogTitle>
+                <DialogDescription>
+                  您确定要删除这个设施吗？此操作无法撤销。
+                </DialogDescription>
+              </DialogHeader>
+              {deletingFacility && (
+                <div className="py-4">
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="font-medium text-gray-900">{deletingFacility.name}</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      类型: {deletingFacility.type} | 位置: {deletingFacility.location}
+                    </p>
+                  </div>
+                </div>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsDeleteFacilityDialogOpen(false)}
+                  disabled={facilityDeleting}
+                >
+                  取消
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteFacilityConfirm}
+                  disabled={facilityDeleting}
+                >
+                  {facilityDeleting ? "删除中..." : "确认删除"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* 停车管理 */}
         <TabsContent value="parking">
+          <div className="space-y-4">
+            <div className="flex justify-end">
+              <Dialog
+                open={isAddParkingOpen}
+                onOpenChange={setIsAddParkingOpen}
+              >
+                <DialogTrigger asChild>
+                  <Button className="bg-blue-600 hover:bg-blue-700">
+                    <Plus className="w-4 h-4 mr-2" />
+                    添加停车位
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>添加新停车位</DialogTitle>
+                    <DialogDescription>
+                      填写停车位信息
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>车位号 <span className="text-red-500">*</span></Label>
+                        <Input
+                          placeholder="如：A-001"
+                          value={parkingFormData.spaceNumber}
+                          onChange={(e) => handleParkingFieldChange("spaceNumber", e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>区域</Label>
+                        <Input
+                          placeholder="如：地下车库A区"
+                          value={parkingFormData.area}
+                          onChange={(e) => handleParkingFieldChange("area", e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>类型</Label>
+                        <Input
+                          placeholder="如：固定车位、临时车位"
+                          value={parkingFormData.type}
+                          onChange={(e) => handleParkingFieldChange("type", e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>状态 <span className="text-red-500">*</span></Label>
+                        <Input
+                          placeholder="如：空闲、已租用、临停"
+                          value={parkingFormData.status}
+                          onChange={(e) => handleParkingFieldChange("status", e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>业主</Label>
+                        <Input
+                          placeholder="请输入业主姓名"
+                          value={parkingFormData.owner}
+                          onChange={(e) => handleParkingFieldChange("owner", e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>房屋</Label>
+                        <Input
+                          placeholder="如：1号楼101室"
+                          value={parkingFormData.building}
+                          onChange={(e) => handleParkingFieldChange("building", e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>车牌号</Label>
+                        <Input
+                          placeholder="请输入车牌号"
+                          value={parkingFormData.plateNumber}
+                          onChange={(e) => handleParkingFieldChange("plateNumber", e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>开始日期</Label>
+                        <Input
+                          type="date"
+                          value={parkingFormData.startDate}
+                          onChange={(e) => handleParkingFieldChange("startDate", e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>结束日期</Label>
+                        <Input
+                          type="date"
+                          value={parkingFormData.endDate}
+                          onChange={(e) => handleParkingFieldChange("endDate", e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsAddParkingOpen(false)}
+                      disabled={parkingSubmitting}
+                    >
+                      取消
+                    </Button>
+                    <Button
+                      className="bg-blue-600 hover:bg-blue-700"
+                      onClick={handleParkingSubmit}
+                      disabled={parkingSubmitting}
+                    >
+                      {parkingSubmitting ? "添加中..." : "添加"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
           <Card>
-            <Table>
+            {parkingLoading ? (
+              <div className="p-6">
+                <div className="text-center text-gray-500">加载中...</div>
+              </div>
+            ) : parkingSpaces.length === 0 ? (
+              <div className="p-6">
+                <div className="text-center text-gray-500">暂无停车位数据</div>
+              </div>
+            ) : (
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>车位号</TableHead>
@@ -734,15 +1467,207 @@ export function CommunityManagement() {
                       {space.status === "空闲" && <div>-</div>}
                     </TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="sm">
-                        <Edit className="w-4 h-4" />
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditParking(space)}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleDeleteParkingClick(space)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+            )}
           </Card>
+
+          {/* 编辑停车位对话框 */}
+          <Dialog
+            open={isEditParkingOpen}
+            onOpenChange={(open) => {
+              setIsEditParkingOpen(open);
+              if (!open) {
+                setEditingParking(null);
+                setParkingFormData({
+                  spaceNumber: "",
+                  area: "",
+                  type: "",
+                  owner: "",
+                  building: "",
+                  plateNumber: "",
+                  status: "",
+                  startDate: "",
+                  endDate: "",
+                });
+              }
+            }}
+          >
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>编辑停车位</DialogTitle>
+                <DialogDescription>
+                  修改停车位信息
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>车位号 <span className="text-red-500">*</span></Label>
+                    <Input
+                      placeholder="如：A-001"
+                      value={parkingFormData.spaceNumber}
+                      onChange={(e) => handleParkingFieldChange("spaceNumber", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>区域</Label>
+                    <Input
+                      placeholder="如：地下车库A区"
+                      value={parkingFormData.area}
+                      onChange={(e) => handleParkingFieldChange("area", e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>类型</Label>
+                    <Input
+                      placeholder="如：固定车位、临时车位"
+                      value={parkingFormData.type}
+                      onChange={(e) => handleParkingFieldChange("type", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>状态 <span className="text-red-500">*</span></Label>
+                    <Input
+                      placeholder="如：空闲、已租用、临停"
+                      value={parkingFormData.status}
+                      onChange={(e) => handleParkingFieldChange("status", e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>业主</Label>
+                    <Input
+                      placeholder="请输入业主姓名"
+                      value={parkingFormData.owner}
+                      onChange={(e) => handleParkingFieldChange("owner", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>房屋</Label>
+                    <Input
+                      placeholder="如：1号楼101室"
+                      value={parkingFormData.building}
+                      onChange={(e) => handleParkingFieldChange("building", e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>车牌号</Label>
+                    <Input
+                      placeholder="请输入车牌号"
+                      value={parkingFormData.plateNumber}
+                      onChange={(e) => handleParkingFieldChange("plateNumber", e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>开始日期</Label>
+                    <Input
+                      type="date"
+                      value={parkingFormData.startDate}
+                      onChange={(e) => handleParkingFieldChange("startDate", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>结束日期</Label>
+                    <Input
+                      type="date"
+                      value={parkingFormData.endDate}
+                      onChange={(e) => handleParkingFieldChange("endDate", e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditParkingOpen(false)}
+                  disabled={parkingSubmitting}
+                >
+                  取消
+                </Button>
+                <Button
+                  className="bg-blue-600 hover:bg-blue-700"
+                  onClick={handleParkingUpdate}
+                  disabled={parkingSubmitting}
+                >
+                  {parkingSubmitting ? "保存中..." : "保存"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* 删除确认对话框 */}
+          <Dialog
+            open={isDeleteParkingDialogOpen}
+            onOpenChange={(open) => {
+              setIsDeleteParkingDialogOpen(open);
+              if (!open) {
+                setDeletingParking(null);
+              }
+            }}
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>确认删除</DialogTitle>
+                <DialogDescription>
+                  您确定要删除这个停车位吗？此操作无法撤销。
+                </DialogDescription>
+              </DialogHeader>
+              {deletingParking && (
+                <div className="py-4">
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="font-medium text-gray-900">车位号: {deletingParking.spaceNumber}</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      区域: {deletingParking.area || "-"} | 状态: {deletingParking.status}
+                    </p>
+                  </div>
+                </div>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsDeleteParkingDialogOpen(false)}
+                  disabled={parkingDeleting}
+                >
+                  取消
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteParkingConfirm}
+                  disabled={parkingDeleting}
+                >
+                  {parkingDeleting ? "删除中..." : "确认删除"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* 巡更管理 */}

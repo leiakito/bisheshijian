@@ -181,3 +181,51 @@ export interface FeeBill {
   paymentTime?: string;
   remark?: string;
 }
+
+// 公共设施类型
+export interface Facility {
+  id: number;
+  name: string;
+  type: string;
+  location: string;
+  status: string;
+  lastMaintenance?: string;
+  nextMaintenance?: string;
+  responsible?: string;
+}
+
+export interface FacilityRequest {
+  name: string;
+  type: string;
+  location: string;
+  status: string;
+  lastMaintenance?: string;
+  nextMaintenance?: string;
+  responsible?: string;
+}
+
+// 停车位类型
+export interface ParkingSpace {
+  id: number;
+  spaceNumber: string;
+  area?: string;
+  type?: string;
+  owner?: string;
+  building?: string;
+  plateNumber?: string;
+  status: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface ParkingSpaceRequest {
+  spaceNumber: string;
+  area?: string;
+  type?: string;
+  owner?: string;
+  building?: string;
+  plateNumber?: string;
+  status: string;
+  startDate?: string;
+  endDate?: string;
+}

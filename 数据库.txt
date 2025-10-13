@@ -1,0 +1,243 @@
+
+  -- Property Management System - MySQL initialization script
+  DROP DATABASE IF EXISTS property_management;
+  CREATE DATABASE property_management DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+  USE property_management;
+
+  -- ----- Core tables -----
+  CREATE TABLE sys_roles (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    name VARCHAR(100) NOT NULL,
+    description VARCHAR(255),
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB;
+
+  CREATE TABLE sys_users (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    full_name VARCHAR(100),
+    phone VARCHAR(20),
+    email VARCHAR(100),
+    active TINYINT(1) NOT NULL DEFAULT 1,
+    last_login_at DATETIME,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB;
+
+  CREATE TABLE sys_user_roles (
+    user_id BIGINT NOT NULL,
+    role_id BIGINT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, role_id),
+    CONSTRAINT fk_user_role_user FOREIGN KEY (user_id) REFERENCES sys_users(id),
+    CONSTRAINT fk_user_role_role FOREIGN KEY (role_id) REFERENCES sys_roles(id)
+  ) ENGINE=InnoDB;
+
+  CREATE TABLE property_units (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    building VARCHAR(50) NOT NULL,
+    unit VARCHAR(50) NOT NULL,
+    room_number VARCHAR(50) NOT NULL,
+    area VARCHAR(20),
+    status VARCHAR(30) NOT NULL,
+    parking_space VARCHAR(50),
+    owner_name VARCHAR(50),
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_property_unit (building, unit, room_number)
+  ) ENGINE=InnoDB;
+
+  CREATE TABLE residents (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    phone VARCHAR(20),
+    building VARCHAR(50) NOT NULL,
+    unit VARCHAR(50) NOT NULL,
+    room_number VARCHAR(50) NOT NULL,
+    area VARCHAR(20),
+    status VARCHAR(20) NOT NULL,
+    move_in_date DATE,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB;
+
+  CREATE TABLE vehicles (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    owner_name VARCHAR(50) NOT NULL,
+    building VARCHAR(50) NOT NULL,
+    plate_number VARCHAR(20) NOT NULL,
+    brand VARCHAR(50),
+    parking_space VARCHAR(50),
+    type VARCHAR(30),
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_vehicle_plate (plate_number)
+  ) ENGINE=InnoDB;
+
+  CREATE TABLE fee_bills (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    bill_number VARCHAR(30) NOT NULL UNIQUE,
+    owner_name VARCHAR(50) NOT NULL,
+    building VARCHAR(100) NOT NULL,
+    type VARCHAR(30) NOT NULL,
+    amount DECIMAL(12,2) NOT NULL,
+    billing_period VARCHAR(20) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    paid_at DATE,
+    pay_method VARCHAR(30),
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB;
+
+  CREATE TABLE complaints (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    owner_name VARCHAR(50) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    description TEXT NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    processed_by VARCHAR(50),
+    reply TEXT,
+    feedback_deadline DATETIME,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB;
+
+  CREATE TABLE repair_orders (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    order_number VARCHAR(30) NOT NULL UNIQUE,
+    owner_name VARCHAR(50) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    description TEXT NOT NULL,
+    building VARCHAR(50) NOT NULL,
+    unit VARCHAR(30) NOT NULL,
+    room_number VARCHAR(30) NOT NULL,
+    priority VARCHAR(20) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    assigned_worker VARCHAR(50),
+    started_at DATETIME,
+    finished_at DATETIME,
+    evaluation_score INT,
+    evaluation_remark TEXT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB;
+
+  CREATE TABLE announcements (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(150) NOT NULL,
+    content TEXT NOT NULL,
+    target_scope VARCHAR(50),
+    publish_at DATETIME,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB;
+
+  -- ----- Seed data -----
+  INSERT INTO sys_roles (id, code, name, description, created_at, updated_at) VALUES
+    (1, 'ADMIN', '系统管理员', '拥有系统所有权限', '2024-01-01 00:00:00', '2024-01-01 00:00:00'),
+    (2, 'FINANCE', '财务人员', '负责收费管理和财务报表', '2024-01-01 00:00:00', '2024-01-01 00:00:00'),
+    (3, 'SERVICE', '客服人员', '负责处理报修和投诉', '2024-01-01 00:00:00', '2024-01-01 00:00:00'),
+    (4, 'ENGINEER', '工程人员', '负责设施维护和报修处理', '2024-01-01 00:00:00', '2024-01-01 00:00:00');
+
+  SET @DEFAULT_PWD = '$2a$10$Dow1hPwrKyYVJZZzqECbuOcDY3vFGQpQnXl16/ZYPD6/COM24kTx2';
+
+  INSERT INTO sys_users (id, username, password, full_name, phone, email, active, last_login_at,
+  created_at, updated_at) VALUES
+    (1, 'admin',    @DEFAULT_PWD, '系统管理员', '13800000001', 'admin@property.com',    1, '2025-01-11
+  09:30:00', '2024-01-01 00:00:00', '2025-01-11 09:30:00'),
+    (2, 'finance',  @DEFAULT_PWD, '财务小张', '13800000002', 'finance@property.com',  1, '2025-01-11
+  08:15:00', '2024-02-15 00:00:00', '2025-01-11 08:15:00'),
+    (3, 'service',  @DEFAULT_PWD, '客服小李', '13800000003', 'service@property.com',  1, '2025-01-10
+  17:45:00', '2024-03-20 00:00:00', '2025-01-10 17:45:00'),
+    (4, 'engineer', @DEFAULT_PWD, '工程小王', '13800000004', 'engineer@property.com', 0, '2025-01-05
+  15:20:00', '2024-05-10 00:00:00', '2025-01-05 15:20:00');
+
+  INSERT INTO sys_user_roles (user_id, role_id) VALUES
+    (1, 1),
+    (2, 2),
+    (3, 3),
+    (4, 4);
+
+  INSERT INTO property_units (id, building, unit, room_number, area, status, parking_space, owner_name,
+  created_at, updated_at) VALUES
+    (1, '1号楼', '2单元', '301', '120㎡', 'OCCUPIED', 'A-101', '张三', '2024-06-01 00:00:00', '2024-06-
+  01 00:00:00'),
+    (2, '1号楼', '2单元', '302', '95㎡',  'OCCUPIED', 'A-102', '李四', '2024-06-01 00:00:00', '2024-06-
+  01 00:00:00'),
+    (3, '2号楼', '1单元', '501', '150㎡', 'OCCUPIED', 'B-205', '王五', '2024-06-01 00:00:00', '2024-06-
+  01 00:00:00'),
+    (4, '3号楼', '3单元', '201', '88㎡',  'VACANT',   NULL,    NULL,  '2024-06-01 00:00:00', '2024-06-
+  01 00:00:00');
+
+  INSERT INTO residents (id, name, phone, building, unit, room_number, area, status, move_in_date,
+  created_at, updated_at) VALUES
+    (1, '张三', '138****1234', '1号楼', '2单元', '301', '120㎡', 'OCCUPIED', '2023-01-15', '2023-01-15
+  08:00:00', '2023-01-15 08:00:00'),
+    (2, '李四', '139****5678', '1号楼', '2单元', '302', '95㎡',  'OCCUPIED', '2023-03-20', '2023-03-20
+  09:00:00', '2023-03-20 09:00:00'),
+    (3, '王五', '136****9012', '2号楼', '1单元', '501', '150㎡', 'OCCUPIED', '2022-12-01', '2022-12-01
+  10:00:00', '2022-12-01 10:00:00'),
+    (4, '赵六', '137****3456', '3号楼', '3单元', '201', '88㎡',  'VACANT',   NULL,        '2024-07-01
+  08:00:00', '2024-07-01 08:00:00');
+
+  INSERT INTO vehicles (id, owner_name, building, plate_number, brand, parking_space, type, created_at,
+  updated_at) VALUES
+    (1, '张三', '1号楼2单元301', '京A12345', '丰田凯美瑞', 'A-101', '固定车位', '2024-08-01 09:00:00',
+  '2024-08-01 09:00:00'),
+    (2, '李四', '1号楼2单元302', '京B67890', '本田雅阁',   'A-102', '固定车位', '2024-08-01 09:00:00',
+  '2024-08-01 09:00:00'),
+    (3, '王五', '2号楼1单元501', '京C13579', '奥迪A4L',    'B-205', '固定车位', '2024-08-01 09:00:00',
+  '2024-08-01 09:00:00');
+
+  INSERT INTO fee_bills (id, bill_number, owner_name, building, type, amount, billing_period, status,
+  paid_at, pay_method, created_at, updated_at) VALUES
+    (1, 'BILL-202501-001', '张三', '1号楼2单元301', '物业费',         2400.00, '2025年1月', 'PAID',
+  '2025-01-05', '微信支付', '2025-01-05 14:23:00', '2025-01-05 14:23:00'),
+    (2, 'BILL-202501-002', '李四', '1号楼2单元302', '物业费',         1900.00, '2025年1月', 'PENDING',
+  NULL,         NULL,      '2025-01-01 09:00:00', '2025-01-01 09:00:00'),
+    (3, 'BILL-202501-003', '王五', '2号楼1单元501', '物业费+停车费', 3200.00, '2025年1月', 'PAID',
+  '2025-01-03', '支付宝',   '2025-01-03 10:15:00', '2025-01-03 10:15:00'),
+    (4, 'BILL-202501-004', '赵六', '3号楼3单元201', '物业费',         1760.00, '2025年1月', 'OVERDUE',
+  NULL,         NULL,      '2025-01-01 09:00:00', '2025-01-01 09:00:00');
+
+  INSERT INTO complaints (id, owner_name, phone, type, description, status, processed_by, reply,
+  feedback_deadline, created_at, updated_at) VALUES
+    (1, '张三', '138****1234', '噪音问题', '楼上装修持续到深夜，希望协调', 'PROCESSING', '客服小李', NULL,
+  '2025-01-11 20:00:00', '2025-01-11 08:00:00', '2025-01-11 08:00:00'),
+    (2, '李四', '139****5678', '环境卫生', '电梯卫生需要加强清洁',         'COMPLETED', '客服小李', '已安排
+  保洁重新清扫', '2025-01-10 20:00:00', '2025-01-10 09:00:00', '2025-01-10 12:00:00');
+
+  INSERT INTO repair_orders (id, order_number, owner_name, phone, type, description, building,
+  unit, room_number, priority, status, assigned_worker, started_at, finished_at, evaluation_score,
+  evaluation_remark, created_at, updated_at) VALUES
+    (1, 'R20250105001', '张三', '138****1234', '水管漏水', '厨房水管接口处漏水，水流较大，需要紧急处
+  理', '1号楼', '2单元', '301', 'URGENT', 'PENDING',    NULL,            NULL,                   NULL,
+  NULL, NULL, '2025-01-11 08:30:00', '2025-01-11 08:30:00'),
+    (2, 'R20250105002', '李四', '139****5678', '电梯故障', '电梯按键失灵，2楼和3楼按钮无反应',       '1
+  号楼', '2单元', '302', 'URGENT', 'IN_PROGRESS', '王师傅',        '2025-01-11 07:00:00', NULL,
+  NULL, NULL, '2025-01-11 06:45:00', '2025-01-11 06:45:00'),
+    (3, 'R20250104001', '王五', '136****9012', '门禁损坏', '单元门禁刷卡无反应，可能是读卡器故障',     '2
+  号楼', '1单元', '501', 'NORMAL', 'COMPLETED',  '王师傅',        '2025-01-10 17:00:00', '2025-01-10
+  18:30:00', 5, '维修很及时，师傅很专业！', '2025-01-10 16:20:00', '2025-01-10 18:30:00');
+
+  INSERT INTO announcements (id, title, content, target_scope, publish_at, created_at, updated_at) VALUES
+    (1, '春节期间物业服务安排', '春节期间保安、保洁全天值班，紧急服务请拨打客服电话。', '全小区', '2025-01-
+  09 09:00:00', '2025-01-09 08:00:00', '2025-01-09 08:00:00'),
+    (2, '2号楼电梯维保通知',   '2号楼电梯将于1月15日进行维保，期间请使用旁边楼梯出入。',    '2号楼', '2025-
+  01-10 09:00:00', '2025-01-10 08:00:00', '2025-01-10 08:00:00');
+
+  ALTER TABLE sys_roles AUTO_INCREMENT = 5;
+  ALTER TABLE sys_users AUTO_INCREMENT = 5;
+  ALTER TABLE property_units AUTO_INCREMENT = 5;
+  ALTER TABLE residents AUTO_INCREMENT = 5;
+  ALTER TABLE vehicles AUTO_INCREMENT = 4;
+  ALTER TABLE fee_bills AUTO_INCREMENT = 5;
+  ALTER TABLE complaints AUTO_INCREMENT = 3;
+  ALTER TABLE repair_orders AUTO_INCREMENT = 4;
+  ALTER TABLE announcements AUTO_INCREMENT = 3;

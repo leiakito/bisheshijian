@@ -8,7 +8,6 @@ import com.propertymgmt.property.model.RepairOrder;
 import com.propertymgmt.property.model.Resident;
 import com.propertymgmt.property.model.Role;
 import com.propertymgmt.property.model.User;
-import com.propertymgmt.property.model.Vehicle;
 import com.propertymgmt.property.repository.AnnouncementRepository;
 import com.propertymgmt.property.repository.ComplaintRepository;
 import com.propertymgmt.property.repository.FeeBillRepository;
@@ -17,7 +16,6 @@ import com.propertymgmt.property.repository.RepairOrderRepository;
 import com.propertymgmt.property.repository.ResidentRepository;
 import com.propertymgmt.property.repository.RoleRepository;
 import com.propertymgmt.property.repository.UserRepository;
-import com.propertymgmt.property.repository.VehicleRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -33,7 +31,6 @@ public class DataSeeder implements CommandLineRunner {
     private final UserRepository userRepository;
     private final PropertyUnitRepository propertyUnitRepository;
     private final ResidentRepository residentRepository;
-    private final VehicleRepository vehicleRepository;
     private final FeeBillRepository feeBillRepository;
     private final ComplaintRepository complaintRepository;
     private final RepairOrderRepository repairOrderRepository;
@@ -44,7 +41,6 @@ public class DataSeeder implements CommandLineRunner {
                       UserRepository userRepository,
                       PropertyUnitRepository propertyUnitRepository,
                       ResidentRepository residentRepository,
-                      VehicleRepository vehicleRepository,
                       FeeBillRepository feeBillRepository,
                       ComplaintRepository complaintRepository,
                       RepairOrderRepository repairOrderRepository,
@@ -54,7 +50,6 @@ public class DataSeeder implements CommandLineRunner {
         this.userRepository = userRepository;
         this.propertyUnitRepository = propertyUnitRepository;
         this.residentRepository = residentRepository;
-        this.vehicleRepository = vehicleRepository;
         this.feeBillRepository = feeBillRepository;
         this.complaintRepository = complaintRepository;
         this.repairOrderRepository = repairOrderRepository;
@@ -68,7 +63,6 @@ public class DataSeeder implements CommandLineRunner {
         seedUsers();
         seedPropertyUnits();
         seedResidents();
-        seedVehicles();
         seedFeeBills();
         seedComplaints();
         seedRepairOrders();
@@ -181,28 +175,6 @@ public class DataSeeder implements CommandLineRunner {
         resident.setStatus(status);
         resident.setMoveInDate(moveIn);
         return resident;
-    }
-
-    private void seedVehicles() {
-        if (vehicleRepository.count() > 0) {
-            return;
-        }
-        vehicleRepository.saveAll(List.of(
-            createVehicle("张三", "1号楼2单元301", "京A12345", "丰田凯美瑞", "A-101", "固定车位"),
-            createVehicle("李四", "1号楼2单元302", "京B67890", "本田雅阁", "A-102", "固定车位"),
-            createVehicle("王五", "2号楼1单元501", "京C13579", "奥迪A4L", "B-205", "固定车位")
-        ));
-    }
-
-    private Vehicle createVehicle(String owner, String building, String plate, String brand, String parking, String type) {
-        Vehicle vehicle = new Vehicle();
-        vehicle.setOwnerName(owner);
-        vehicle.setBuilding(building);
-        vehicle.setPlateNumber(plate);
-        vehicle.setBrand(brand);
-        vehicle.setParkingSpace(parking);
-        vehicle.setType(type);
-        return vehicle;
     }
 
     private void seedFeeBills() {

@@ -45,7 +45,10 @@ public class ResidentServiceImpl implements ResidentService {
     public Resident create(ResidentRequest request) {
         Resident resident = new Resident();
         applyRequest(request, resident);
-        resident.setMoveInDate(LocalDate.now());
+        // 如果没有提供入住日期，使用当前日期
+        if (resident.getMoveInDate() == null) {
+            resident.setMoveInDate(LocalDate.now());
+        }
         return residentRepository.save(resident);
     }
 
@@ -65,12 +68,30 @@ public class ResidentServiceImpl implements ResidentService {
     private void applyRequest(ResidentRequest request, Resident resident) {
         resident.setName(request.getName());
         resident.setPhone(request.getPhone());
+        resident.setIdCard(request.getIdCard());
         resident.setBuilding(request.getBuilding());
         resident.setUnit(request.getUnit());
         resident.setRoomNumber(request.getRoomNumber());
         resident.setArea(request.getArea());
-        if (request.getStatus() != null) {
+
+        // 设置居住类型
+        if (StringUtils.hasText(request.getResidenceType())) {
+            resident.setResidenceType(Resident.ResidenceType.valueOf(request.getResidenceType().toUpperCase()));
+        }
+
+        // 设置状态
+        if (StringUtils.hasText(request.getStatus())) {
             resident.setStatus(Resident.Status.valueOf(request.getStatus().toUpperCase()));
         }
+
+        // 设置入住日期
+        if (StringUtils.hasText(request.getMoveInDate())) {
+            resident.setMoveInDate(LocalDate.parse(request.getMoveInDate()));
+        }
+
+        // 设置紧急联系信息
+        resident.setEmergencyContact(request.getEmergencyContact());
+        resident.setEmergencyPhone(request.getEmergencyPhone());
+        resident.setRemark(request.getRemark());
     }
 }

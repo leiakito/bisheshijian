@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
@@ -633,7 +633,58 @@ export function CommunityManagement() {
     }
   };
 
+  // 过滤公告
+  const filteredAnnouncements = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return announcements;
+    }
+    const query = searchQuery.toLowerCase();
+    return announcements.filter((announcement) => {
+      return (
+        announcement.title?.toLowerCase().includes(query) ||
+        announcement.content?.toLowerCase().includes(query) ||
+        announcement.targetScope?.toLowerCase().includes(query) ||
+        announcement.publisher?.toLowerCase().includes(query) ||
+        announcement.category?.toLowerCase().includes(query)
+      );
+    });
+  }, [announcements, searchQuery]);
 
+  // 过滤设施
+  const filteredFacilities = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return facilities;
+    }
+    const query = searchQuery.toLowerCase();
+    return facilities.filter((facility) => {
+      return (
+        facility.name?.toLowerCase().includes(query) ||
+        facility.type?.toLowerCase().includes(query) ||
+        facility.location?.toLowerCase().includes(query) ||
+        facility.status?.toLowerCase().includes(query) ||
+        facility.responsible?.toLowerCase().includes(query)
+      );
+    });
+  }, [facilities, searchQuery]);
+
+  // 过滤停车位
+  const filteredParkingSpaces = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return parkingSpaces;
+    }
+    const query = searchQuery.toLowerCase();
+    return parkingSpaces.filter((space) => {
+      return (
+        space.spaceNumber?.toLowerCase().includes(query) ||
+        space.area?.toLowerCase().includes(query) ||
+        space.type?.toLowerCase().includes(query) ||
+        space.owner?.toLowerCase().includes(query) ||
+        space.building?.toLowerCase().includes(query) ||
+        space.plateNumber?.toLowerCase().includes(query) ||
+        space.status?.toLowerCase().includes(query)
+      );
+    });
+  }, [parkingSpaces, searchQuery]);
 
   const patrols = [
     {
@@ -682,9 +733,27 @@ export function CommunityManagement() {
               placeholder="搜索公告、设施、车位..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  // 触发搜索（实际上搜索是实时的，这里只是为了用户体验）
+                  e.currentTarget.blur();
+                }
+              }}
               className="pl-10"
             />
           </div>
+          <Button
+            className="bg-blue-600 hover:bg-blue-700"
+            onClick={() => {
+              // 触发搜索（实际上搜索是实时的，这里只是为了用户体验）
+              if (searchQuery.trim()) {
+                toast.success(`搜索: ${searchQuery}`);
+              }
+            }}
+          >
+            <Search className="w-4 h-4 mr-2" />
+            搜索
+          </Button>
         </div>
       </Card>
 
@@ -694,7 +763,7 @@ export function CommunityManagement() {
           <TabsTrigger value="announcements">公告通知</TabsTrigger>
           <TabsTrigger value="facilities">公共设施</TabsTrigger>
           <TabsTrigger value="parking">停车管理</TabsTrigger>
-          <TabsTrigger value="patrol">巡更管理</TabsTrigger>
+      
         </TabsList>
 
         {/* 公告通知 */}
@@ -877,12 +946,14 @@ export function CommunityManagement() {
               <Card className="p-6">
                 <div className="text-center text-gray-500">加载中...</div>
               </Card>
-            ) : announcements.length === 0 ? (
+            ) : filteredAnnouncements.length === 0 ? (
               <Card className="p-6">
-                <div className="text-center text-gray-500">暂无公告</div>
+                <div className="text-center text-gray-500">
+                  {searchQuery.trim() ? "没有找到匹配的公告" : "暂无公告"}
+                </div>
               </Card>
             ) : (
-              announcements.map((announcement) => (
+              filteredAnnouncements.map((announcement) => (
                 <Card key={announcement.id} className="p-6">
                   <div className="flex items-start justify-between">
                     <div className="flex gap-4 flex-1">
@@ -1048,9 +1119,11 @@ export function CommunityManagement() {
               <div className="p-6">
                 <div className="text-center text-gray-500">加载中...</div>
               </div>
-            ) : facilities.length === 0 ? (
+            ) : filteredFacilities.length === 0 ? (
               <div className="p-6">
-                <div className="text-center text-gray-500">暂无设施数据</div>
+                <div className="text-center text-gray-500">
+                  {searchQuery.trim() ? "没有找到匹配的设施" : "暂无设施数据"}
+                </div>
               </div>
             ) : (
               <Table>
@@ -1067,7 +1140,7 @@ export function CommunityManagement() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {facilities.map((facility) => (
+                  {filteredFacilities.map((facility) => (
                     <TableRow key={facility.id}>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -1407,9 +1480,11 @@ export function CommunityManagement() {
               <div className="p-6">
                 <div className="text-center text-gray-500">加载中...</div>
               </div>
-            ) : parkingSpaces.length === 0 ? (
+            ) : filteredParkingSpaces.length === 0 ? (
               <div className="p-6">
-                <div className="text-center text-gray-500">暂无停车位数据</div>
+                <div className="text-center text-gray-500">
+                  {searchQuery.trim() ? "没有找到匹配的停车位" : "暂无停车位数据"}
+                </div>
               </div>
             ) : (
               <Table>
@@ -1427,7 +1502,7 @@ export function CommunityManagement() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {parkingSpaces.map((space) => (
+                {filteredParkingSpaces.map((space) => (
                   <TableRow key={space.id}>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -1670,66 +1745,7 @@ export function CommunityManagement() {
           </Dialog>
         </TabsContent>
 
-        {/* 巡更管理 */}
-        <TabsContent value="patrol">
-          <Card>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>日期</TableHead>
-                  <TableHead>班次</TableHead>
-                  <TableHead>保安</TableHead>
-                  <TableHead>巡更路线</TableHead>
-                  <TableHead>打卡点</TableHead>
-                  <TableHead>完成情况</TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead>时间</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {patrols.map((patrol) => (
-                  <TableRow key={patrol.id}>
-                    <TableCell>{patrol.date}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{patrol.shift}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Shield className="w-4 h-4 text-gray-400" />
-                        {patrol.guard}
-                      </div>
-                    </TableCell>
-                    <TableCell>{patrol.route}</TableCell>
-                    <TableCell>{patrol.checkpoints}个</TableCell>
-                    <TableCell>
-                      <span
-                        className={
-                          patrol.completed === patrol.checkpoints
-                            ? "text-green-600"
-                            : "text-orange-600"
-                        }
-                      >
-                        {patrol.completed}/{patrol.checkpoints}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          patrol.status === "已完成" ? "default" : "secondary"
-                        }
-                      >
-                        {patrol.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-gray-500">
-                      {patrol.time}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-        </TabsContent>
+      
       </Tabs>
     </div>
   );

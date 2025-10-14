@@ -47,7 +47,8 @@ export function ResidentManagement() {
     idCard: "",
     building: "",
     unit: "",
-    room: "",
+    roomNumber: "",
+    area: "",
     residenceType: "OWNER",
     moveInDate: new Date().toISOString().split("T")[0],
     status: "OCCUPIED",
@@ -99,7 +100,8 @@ export function ResidentManagement() {
       idCard: resident.idCard,
       building: resident.building,
       unit: resident.unit,
-      room: resident.room,
+      roomNumber: resident.roomNumber,
+      area: resident.area || "",
       residenceType: resident.residenceType,
       moveInDate: resident.moveInDate,
       status: resident.status,
@@ -145,7 +147,8 @@ export function ResidentManagement() {
       idCard: "",
       building: "",
       unit: "",
-      room: "",
+      roomNumber: "",
+      area: "",
       residenceType: "OWNER",
       moveInDate: new Date().toISOString().split("T")[0],
       status: "OCCUPIED",
@@ -167,6 +170,13 @@ export function ResidentManagement() {
       default:
         return <Badge>{status}</Badge>;
     }
+  };
+
+  // 隐藏电话号码中间四位
+  const maskPhoneNumber = (phone: string) => {
+    if (!phone || phone.length < 7) return phone;
+    // 保留前3位和后4位，中间用****替代
+    return phone.replace(/(\d{3})\d{4}(\d{4})/, "$1****$2");
   };
 
   return (
@@ -259,9 +269,9 @@ export function ResidentManagement() {
                     <Label>房号 *</Label>
                     <Input
                       placeholder="301"
-                      value={formData.room}
+                      value={formData.roomNumber}
                       onChange={(e) =>
-                        setFormData({ ...formData, room: e.target.value })
+                        setFormData({ ...formData, roomNumber: e.target.value })
                       }
                     />
                   </div>
@@ -420,9 +430,9 @@ export function ResidentManagement() {
                 <Label>房号 *</Label>
                 <Input
                   placeholder="301"
-                  value={formData.room}
+                  value={formData.roomNumber}
                   onChange={(e) =>
-                    setFormData({ ...formData, room: e.target.value })
+                    setFormData({ ...formData, roomNumber: e.target.value })
                   }
                 />
               </div>
@@ -559,9 +569,9 @@ export function ResidentManagement() {
                   {residents.map((resident) => (
                     <TableRow key={resident.id}>
                       <TableCell>{resident.name}</TableCell>
-                      <TableCell>{resident.phone}</TableCell>
+                      <TableCell>{maskPhoneNumber(resident.phone)}</TableCell>
                       <TableCell>
-                        {resident.building} {resident.unit} {resident.room}
+                        {resident.building} {resident.unit} {resident.roomNumber}
                       </TableCell>
                       <TableCell>
                         {resident.residenceType === "OWNER" ? "业主" : "租户"}

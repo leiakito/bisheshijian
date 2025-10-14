@@ -23,7 +23,7 @@ import {
   Monitor,
   Edit,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface ProfilePageProps {
   userInfo: { name: string; role: string };
@@ -31,8 +31,133 @@ interface ProfilePageProps {
 
 export function ProfilePage({ userInfo }: ProfilePageProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [loginHistory, setLoginHistory] = useState<Array<{
+    id: string;
+    time: string;
+    ip: string;
+    location: string;
+    device: string;
+    status: string;
+  }>>([]);
 
-  const userDetails = {
+  // 获取设备信息
+  const getDeviceInfo = () => {
+    const ua = navigator.userAgent;
+    let browser = "Unknown";
+    let os = "Unknown";
+
+    // 检测浏览器
+    if (ua.includes("Chrome") && !ua.includes("Edg")) {
+      browser = "Chrome";
+    } else if (ua.includes("Edg")) {
+      browser = "Edge";
+    } else if (ua.includes("Firefox")) {
+      browser = "Firefox";
+    } else if (ua.includes("Safari") && !ua.includes("Chrome")) {
+      browser = "Safari";
+    }
+
+    // 检测操作系统
+    if (ua.includes("Windows NT 10.0")) {
+      os = "Windows 10";
+    } else if (ua.includes("Windows NT 11.0")) {
+      os = "Windows 11";
+    } else if (ua.includes("Mac OS X")) {
+      os = "macOS";
+    } else if (ua.includes("Linux")) {
+      os = "Linux";
+    } else if (ua.includes("Android")) {
+      os = "Android";
+    } else if (ua.includes("iPhone") || ua.includes("iPad")) {
+      os = "iOS";
+    }
+
+    return `${browser} / ${os}`;
+  };
+
+  // 生成随机IP地址
+  const generateRandomIP = () => {
+    const segment1 = 192;
+    const segment2 = 168;
+    const segment3 = Math.floor(Math.random() * 256);
+    const segment4 = Math.floor(Math.random() * 256);
+    return `${segment1}.${segment2}.${segment3}.${segment4}`;
+  };
+
+  // 随机地点列表
+  const locations = [
+    "北京市朝阳区",
+    "北京市海淀区",
+    "北京市东城区",
+    "上海市浦东新区",
+    "上海市黄浦区",
+    "广州市天河区",
+    "深圳市南山区",
+    "杭州市西湖区",
+  ];
+
+  // 生成随机登录历史
+  const generateLoginHistory = () => {
+    const history = [];
+    const count = Math.floor(Math.random() * 6) + 5; // 5-10条记录
+    const deviceInfo = getDeviceInfo();
+    const currentTime = new Date();
+
+    for (let i = 0; i < count; i++) {
+      // 生成过去的随机时间（最近30天内）
+      const daysAgo = Math.floor(Math.random() * 30);
+      const hoursOffset = Math.floor(Math.random() * 24);
+      const minutesOffset = Math.floor(Math.random() * 60);
+      const secondsOffset = Math.floor(Math.random() * 60);
+
+      const loginTime = new Date(currentTime);
+      loginTime.setDate(loginTime.getDate() - daysAgo);
+      loginTime.setHours(hoursOffset, minutesOffset, secondsOffset);
+
+      const timeString = loginTime.toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      }).replace(/\//g, '-');
+
+      history.push({
+        id: String(i + 1),
+        time: timeString,
+        ip: generateRandomIP(),
+        location: locations[Math.floor(Math.random() * locations.length)],
+        device: deviceInfo,
+        status: Math.random() > 0.1 ? "成功" : "失败", // 90%成功率
+      });
+    }
+
+    // 按时间降序排序
+    history.sort((a, b) => {
+      return new Date(b.time).getTime() - new Date(a.time).getTime();
+    });
+
+    return history;
+  };
+
+  // 在组件挂载时生成登录历史
+  useEffect(() => {
+    const history = generateLoginHistory();
+    setLoginHistory(history);
+
+    // 更新最后登录时间为最新的一条记录
+    if (history.length > 0) {
+      setUserDetails(prev => ({
+        ...prev,
+        lastLogin: history[0].time,
+        loginIP: history[0].ip,
+      }));
+    }
+  }, []);
+
+  const [userDetails, setUserDetails] = useState({
     username: "admin",
     realName: userInfo.name || "系统管理员",
     role: userInfo.role || "管理员",
@@ -40,44 +165,9 @@ export function ProfilePage({ userInfo }: ProfilePageProps) {
     email: "admin@property.com",
     department: "技术部",
     joinDate: "2024-01-01",
-    lastLogin: "2025-01-11 09:30:15",
-    loginIP: "192.168.1.100",
-  };
-
-  const loginHistory = [
-    {
-      id: "1",
-      time: "2025-01-11 09:30:15",
-      ip: "192.168.1.100",
-      location: "北京市朝阳区",
-      device: "Chrome 120 / Windows 10",
-      status: "成功",
-    },
-    {
-      id: "2",
-      time: "2025-01-10 08:45:22",
-      ip: "192.168.1.100",
-      location: "北京市朝阳区",
-      device: "Chrome 120 / Windows 10",
-      status: "成功",
-    },
-    {
-      id: "3",
-      time: "2025-01-09 09:12:33",
-      ip: "192.168.1.100",
-      location: "北京市朝阳区",
-      device: "Chrome 120 / Windows 10",
-      status: "成功",
-    },
-    {
-      id: "4",
-      time: "2025-01-08 14:20:11",
-      ip: "192.168.1.105",
-      location: "北京市海淀区",
-      device: "Edge 120 / Windows 11",
-      status: "成功",
-    },
-  ];
+    lastLogin: "加载中...",
+    loginIP: "加载中...",
+  });
 
   const permissions = [
     { module: "仪表盘", view: true, add: false, edit: false, delete: false },
@@ -130,14 +220,7 @@ export function ProfilePage({ userInfo }: ProfilePageProps) {
               </div>
             </div>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => setIsEditing(!isEditing)}
-            className="flex items-center gap-2"
-          >
-            <Edit className="w-4 h-4" />
-            编辑资料
-          </Button>
+          
         </div>
       </Card>
 
@@ -364,7 +447,9 @@ export function ProfilePage({ userInfo }: ProfilePageProps) {
                       {log.device}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="default">{log.status}</Badge>
+                      <Badge variant={log.status === "成功" ? "default" : "destructive"}>
+                        {log.status}
+                      </Badge>
                     </TableCell>
                   </TableRow>
                 ))}

@@ -1,21 +1,11 @@
 import { get, post } from "../utils/apiClient";
-import type { Complaint, ComplaintRequest, PageResponse } from "../types/api";
+import type { Complaint, ComplaintRequest } from "../types/api";
 
 /**
- * 查询投诉列表（分页）
+ * 查询所有投诉列表
  */
-export async function getComplaints(params: {
-  keyword?: string;
-  status?: string;
-  page?: number;
-  size?: number;
-}): Promise<PageResponse<Complaint>> {
-  return get<PageResponse<Complaint>>("/complaints", {
-    keyword: params.keyword,
-    status: params.status,
-    page: params.page,
-    size: params.size || 20,
-  });
+export async function getAllComplaints(): Promise<Complaint[]> {
+  return get<Complaint[]>("/complaints");
 }
 
 /**
@@ -26,6 +16,6 @@ export async function createComplaint(data: ComplaintRequest): Promise<Complaint
 }
 
 export default {
-  getComplaints,
+  getAllComplaints,
   createComplaint,
 };

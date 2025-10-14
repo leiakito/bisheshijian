@@ -38,7 +38,8 @@ export interface Resident {
   idCard: string;
   building: string;
   unit: string;
-  room: string;
+  roomNumber: string;
+  area?: string;
   residenceType: string;
   moveInDate: string;
   status: string;
@@ -53,7 +54,8 @@ export interface ResidentRequest {
   idCard: string;
   building: string;
   unit: string;
-  room: string;
+  roomNumber: string;
+  area?: string;
   residenceType: string;
   moveInDate: string;
   status: string;
@@ -101,23 +103,22 @@ export interface RepairStatusUpdateRequest {
 // 投诉类型
 export interface Complaint {
   id: number;
-  building: string;
-  unit: string;
-  room: string;
-  complaintType: string;
+  ownerName: string;
+  phone: string;
+  type: string;
   description: string;
-  status: string;
-  submitTime: string;
+  status: string; // RECEIVED, PROCESSING, COMPLETED, CLOSED
   processedBy?: string;
-  processedTime?: string;
-  response?: string;
+  reply?: string;
+  feedbackDeadline?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ComplaintRequest {
-  building: string;
-  unit: string;
-  room: string;
-  complaintType: string;
+  ownerName: string;
+  phone: string;
+  type: string;
   description: string;
 }
 
@@ -228,4 +229,18 @@ export interface ParkingSpaceRequest {
   status: string;
   startDate?: string;
   endDate?: string;
+}
+
+// 通知类型
+export interface Notification {
+  id: string;
+  type: 'announcement' | 'complaint' | 'system';
+  title: string;
+  content: string;
+  time: string;
+  read: boolean;
+  icon?: any;
+  color?: string;
+  bg?: string;
+  sourceId?: number; // 原始数据的ID（公告ID或投诉ID）
 }

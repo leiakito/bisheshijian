@@ -65,19 +65,6 @@
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
   ) ENGINE=InnoDB;
 
-  CREATE TABLE vehicles (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    owner_name VARCHAR(50) NOT NULL,
-    building VARCHAR(50) NOT NULL,
-    plate_number VARCHAR(20) NOT NULL,
-    brand VARCHAR(50),
-    parking_space VARCHAR(50),
-    type VARCHAR(30),
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY uk_vehicle_plate (plate_number)
-  ) ENGINE=InnoDB;
-
   CREATE TABLE fee_bills (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     bill_number VARCHAR(30) NOT NULL UNIQUE,
@@ -186,15 +173,6 @@
     (4, '赵六', '137****3456', '3号楼', '3单元', '201', '88㎡',  'VACANT',   NULL,        '2024-07-01
   08:00:00', '2024-07-01 08:00:00');
 
-  INSERT INTO vehicles (id, owner_name, building, plate_number, brand, parking_space, type, created_at,
-  updated_at) VALUES
-    (1, '张三', '1号楼2单元301', '京A12345', '丰田凯美瑞', 'A-101', '固定车位', '2024-08-01 09:00:00',
-  '2024-08-01 09:00:00'),
-    (2, '李四', '1号楼2单元302', '京B67890', '本田雅阁',   'A-102', '固定车位', '2024-08-01 09:00:00',
-  '2024-08-01 09:00:00'),
-    (3, '王五', '2号楼1单元501', '京C13579', '奥迪A4L',    'B-205', '固定车位', '2024-08-01 09:00:00',
-  '2024-08-01 09:00:00');
-
   INSERT INTO fee_bills (id, bill_number, owner_name, building, type, amount, billing_period, status,
   paid_at, pay_method, created_at, updated_at) VALUES
     (1, 'BILL-202501-001', '张三', '1号楼2单元301', '物业费',         2400.00, '2025年1月', 'PAID',
@@ -236,7 +214,6 @@
   ALTER TABLE sys_users AUTO_INCREMENT = 5;
   ALTER TABLE property_units AUTO_INCREMENT = 5;
   ALTER TABLE residents AUTO_INCREMENT = 5;
-  ALTER TABLE vehicles AUTO_INCREMENT = 4;
   ALTER TABLE fee_bills AUTO_INCREMENT = 5;
   ALTER TABLE complaints AUTO_INCREMENT = 3;
   ALTER TABLE repair_orders AUTO_INCREMENT = 4;

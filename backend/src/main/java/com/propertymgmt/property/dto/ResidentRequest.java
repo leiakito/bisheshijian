@@ -11,6 +11,9 @@ public class ResidentRequest {
     private String phone;
 
     @NotBlank
+    private String idCard;
+
+    @NotBlank
     private String building;
 
     @NotBlank
@@ -21,7 +24,17 @@ public class ResidentRequest {
 
     private String area;
 
+    private String residenceType;
+
     private String status;
+
+    private String moveInDate;
+
+    private String emergencyContact;
+
+    private String emergencyPhone;
+
+    private String remark;
 
     public String getName() {
         return name;
@@ -77,5 +90,53 @@ public class ResidentRequest {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getIdCard() {
+        return idCard;
+    }
+
+    public void setIdCard(String idCard) {
+        this.idCard = idCard;
+    }
+
+    public String getResidenceType() {
+        return residenceType;
+    }
+
+    public void setResidenceType(String residenceType) {
+        this.residenceType = residenceType;
+    }
+
+    public String getMoveInDate() {
+        return moveInDate;
+    }
+
+    public void setMoveInDate(String moveInDate) {
+        this.moveInDate = moveInDate;
+    }
+
+    public String getEmergencyContact() {
+        return emergencyContact;
+    }
+
+    public void setEmergencyContact(String emergencyContact) {
+        this.emergencyContact = emergencyContact;
+    }
+
+    public String getEmergencyPhone() {
+        return emergencyPhone;
+    }
+
+    public void setEmergencyPhone(String emergencyPhone) {
+        this.emergencyPhone = emergencyPhone;
+    }
+
+    public String getRemark() {
+        return remark;
+    }
+
+    public void setRemark(String remark) {
+        this.remark = remark;
     }
 }

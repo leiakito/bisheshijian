@@ -12,4 +12,6 @@ public interface FeeBillRepository extends JpaRepository<FeeBill, Long> {
 
     @Query("select coalesce(sum(f.amount),0) from FeeBill f where f.status = 'PAID'")
     BigDecimal sumPaidAmount();
+
+    boolean existsByTypeAndBillingPeriodAndOwnerName(String type, String billingPeriod, String ownerName);
 }

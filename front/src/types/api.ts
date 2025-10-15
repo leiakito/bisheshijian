@@ -141,19 +141,6 @@ export interface AnnouncementRequest {
   targetScope?: string;
 }
 
-// 房产单元类型
-export interface PropertyUnit {
-  id: number;
-  building: string;
-  unit: string;
-  room: string;
-  area: number;
-  propertyType: string;
-  status: string;
-  ownerName?: string;
-  ownerPhone?: string;
-}
-
 // 车辆类型
 export interface Vehicle {
   id: number;
@@ -243,4 +230,179 @@ export interface Notification {
   color?: string;
   bg?: string;
   sourceId?: number; // 原始数据的ID（公告ID或投诉ID）
+}
+
+// 用户管理类型
+export interface UserResponse {
+  id: number;
+  username: string;
+  fullName: string;
+  phone?: string;
+  email?: string;
+  active: boolean;
+  lastLoginAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  // Resident info
+  residentId?: number;
+  residentName?: string;
+  residentPhone?: string;
+  building?: string;
+  unit?: string;
+  roomNumber?: string;
+  // Role info
+  roleCode?: string;
+  roleName?: string;
+}
+
+export interface UserRequest {
+  username: string;
+  password: string;
+  fullName: string;
+  phone?: string;
+  email?: string;
+  residentId: number;
+  roleId: number;
+  active?: boolean;
+}
+
+// 角色类型
+export interface Role {
+  id: number;
+  code: string;
+  name: string;
+  description?: string;
+}
+
+// 角色响应类型（包含统计信息）
+export interface RoleResponse {
+  id: number;
+  code: string;
+  name: string;
+  description?: string;
+  userCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 角色请求类型
+export interface RoleRequest {
+  code: string;
+  name: string;
+  description?: string;
+}
+
+// 报修订单类型（完整）
+export interface RepairOrder {
+  id: number;
+  orderNumber: string;
+  ownerName: string;
+  phone: string;
+  building: string;
+  unit: string;
+  roomNumber: string;
+  type: string;
+  description: string;
+  priority: string; // NORMAL, URGENT
+  status: string; // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
+  assignedWorker?: string;
+  startedAt?: string;
+  finishedAt?: string;
+  evaluationScore?: number;
+  evaluationRemark?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RepairOrderRequest {
+  ownerName: string;
+  phone: string;
+  building: string;
+  unit: string;
+  roomNumber: string;
+  type: string;
+  description: string;
+  priority?: string;
+}
+
+export interface RepairStatusUpdateRequest {
+  status: string;
+  assignedWorker?: string;
+  evaluationScore?: number;
+  evaluationRemark?: string;
+}
+
+// 收费账单类型
+export interface Bill {
+  id: number;
+  billNumber: string;
+  ownerName: string;
+  building: string;
+  type: string;
+  amount: number;
+  billingPeriod: string;
+  status: string; // PAID, PENDING, OVERDUE
+  paidAt?: string;
+  payMethod?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BillRequest {
+  ownerName: string;
+  building: string;
+  type: string;
+  amount: number;
+  billingPeriod: string;
+}
+
+export interface GenerateBillsRequest {
+  billingPeriod: string;
+}
+
+// 缴费记录类型
+export interface Payment {
+  id: number;
+  orderNumber: string;
+  billId?: number;
+  ownerName: string;
+  building: string;
+  amount: number;
+  type: string;
+  payMethod: string;
+  status: string; // SUCCESS, FAILED, PENDING
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PaymentRequest {
+  billId: number;
+  payMethod: string;
+}
+
+// 收费项目类型
+export interface FeeItem {
+  id: number;
+  name: string;
+  unit: string;
+  price: number;
+  description?: string;
+  status: string; // ACTIVE, INACTIVE
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FeeItemRequest {
+  name: string;
+  unit: string;
+  price: number;
+  description?: string;
+}
+
+// 财务统计类型
+export interface FeeStatistics {
+  monthlyReceivable: number;  // 本月应收
+  monthlyReceived: number;    // 本月实收
+  totalArrears: number;       // 欠费总额
+  paymentRate: number;        // 缴费率
 }

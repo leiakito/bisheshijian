@@ -7,6 +7,7 @@ import java.util.List;
 
 public interface RepairOrderService {
     List<RepairOrder> findAll();
+    RepairOrder findById(Long id);
     RepairOrder create(RepairOrderRequest request);
     RepairOrder updateStatus(Long id, RepairStatusUpdateRequest request);
 }

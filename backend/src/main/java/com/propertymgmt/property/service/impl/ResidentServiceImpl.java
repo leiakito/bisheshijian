@@ -4,6 +4,7 @@ import com.propertymgmt.property.dto.ResidentRequest;
 import com.propertymgmt.property.model.Resident;
 import com.propertymgmt.property.repository.ResidentRepository;
 import com.propertymgmt.property.service.ResidentService;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -72,7 +73,7 @@ public class ResidentServiceImpl implements ResidentService {
         resident.setBuilding(request.getBuilding());
         resident.setUnit(request.getUnit());
         resident.setRoomNumber(request.getRoomNumber());
-        resident.setArea(request.getArea());
+        resident.setArea(normalizeArea(request.getArea()));
 
         // 设置居住类型
         if (StringUtils.hasText(request.getResidenceType())) {
@@ -93,5 +94,33 @@ public class ResidentServiceImpl implements ResidentService {
         resident.setEmergencyContact(request.getEmergencyContact());
         resident.setEmergencyPhone(request.getEmergencyPhone());
         resident.setRemark(request.getRemark());
+    }
+
+    private String normalizeArea(String area) {
+        if (!StringUtils.hasText(area)) {
+            return null;
+        }
+        String normalized = area.trim()
+            .replace("平方米", "")
+            .replace("平米", "")
+            .replace("m²", "")
+            .replace("M²", "")
+            .replace("㎡", "")
+            .replace("m2", "")
+            .replace("M2", "");
+        normalized = normalized.replaceAll("[^0-9.]", "");
+        if (!StringUtils.hasText(normalized)) {
+            return null;
+        }
+        if (normalized.startsWith(".")) {
+            normalized = "0" + normalized;
+        }
+        try {
+            BigDecimal value = new BigDecimal(normalized);
+            normalized = value.stripTrailingZeros().toPlainString();
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException("面积格式不正确");
+        }
+        return normalized + "㎡";
     }
 }

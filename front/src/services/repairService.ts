@@ -1,39 +1,38 @@
 import { get, post, put } from "../utils/apiClient";
-import type { RepairOrder, RepairOrderRequest, RepairStatusUpdateRequest, PageResponse } from "../types/api";
+import type { RepairOrder, RepairOrderRequest, RepairStatusUpdateRequest } from "../types/api";
 
 /**
- * 查询报修工单列表（分页）
+ * 获取所有报修订单
  */
-export async function getRepairs(params: {
-  keyword?: string;
-  status?: string;
-  page?: number;
-  size?: number;
-}): Promise<PageResponse<RepairOrder>> {
-  return get<PageResponse<RepairOrder>>("/repairs", {
-    keyword: params.keyword,
-    status: params.status,
-    page: params.page,
-    size: params.size || 20,
-  });
+export async function getAllRepairOrders(ownerName?: string): Promise<RepairOrder[]> {
+  const params = ownerName ? { ownerName } : {};
+  return get<RepairOrder[]>("/repairs", params);
 }
 
 /**
- * 创建报修工单
+ * 根据ID获取报修订单
  */
-export async function createRepair(data: RepairOrderRequest): Promise<RepairOrder> {
+export async function getRepairOrderById(id: number): Promise<RepairOrder> {
+  return get<RepairOrder>(`/repairs/${id}`);
+}
+
+/**
+ * 创建报修订单
+ */
+export async function createRepairOrder(data: RepairOrderRequest): Promise<RepairOrder> {
   return post<RepairOrder>("/repairs", data);
 }
 
 /**
- * 更新报修工单状态
+ * 更新报修订单状态
  */
-export async function updateRepairStatus(id: number, data: RepairStatusUpdateRequest): Promise<RepairOrder> {
+export async function updateRepairOrderStatus(id: number, data: RepairStatusUpdateRequest): Promise<RepairOrder> {
   return put<RepairOrder>(`/repairs/${id}/status`, data);
 }
 
 export default {
-  getRepairs,
-  createRepair,
-  updateRepairStatus,
+  getAllRepairOrders,
+  getRepairOrderById,
+  createRepairOrder,
+  updateRepairOrderStatus,
 };

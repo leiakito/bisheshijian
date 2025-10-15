@@ -6,6 +6,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Building2 } from "lucide-react";
 import { login } from "../services/authService";
+import { clearAuth } from "../utils/tokenManager";
 
 export function LoginPage() {
   const [username, setUsername] = useState("");
@@ -35,7 +36,17 @@ export function LoginPage() {
     setLoading(true);
 
     try {
-      await login({ username, password });
+      const response = await login({ username, password });
+
+      // 验证用户是否有管理员权限（ADMIN角色）
+      if (!response.roles.includes("ROLE_ADMIN")) {
+        // 角色不匹配，清除已保存的token
+        clearAuth();
+        setError("您没有管理员权限，请使用管理员账号登录");
+        setLoading(false);
+        return;
+      }
+
       navigate(from, { replace: true });
     } catch (err) {
       console.error("Login error:", err);
@@ -95,12 +106,17 @@ export function LoginPage() {
             </Button>
           </form>
 
-          {/* 提示信息 */}
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-800">
-              <span className="block">演示账号：admin / owner / engineer</span>
-              <span className="block mt-1">密码：123456</span>
-            </p>
+          {/* 返回主页按钮 */}
+          <div className="mt-6">
+            <Button
+              type="button"
+              className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800"
+              onClick={() => {
+                window.location.href = "http://localhost:3000/";
+              }}
+            >
+              返回主页
+            </Button>
           </div>
         </div>
 

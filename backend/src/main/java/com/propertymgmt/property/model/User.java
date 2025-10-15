@@ -6,6 +6,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -35,6 +36,10 @@ public class User extends BaseEntity {
 
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "resident_id")
+    private Resident resident;
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
@@ -106,5 +111,13 @@ public class User extends BaseEntity {
 
     public void setRoles(Set<Role> roles) {
         this.roles = roles;
+    }
+
+    public Resident getResident() {
+        return resident;
+    }
+
+    public void setResident(Resident resident) {
+        this.resident = resident;
     }
 }

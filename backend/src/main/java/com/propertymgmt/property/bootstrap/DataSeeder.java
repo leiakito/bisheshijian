@@ -3,7 +3,6 @@ package com.propertymgmt.property.bootstrap;
 import com.propertymgmt.property.model.Announcement;
 import com.propertymgmt.property.model.Complaint;
 import com.propertymgmt.property.model.FeeBill;
-import com.propertymgmt.property.model.PropertyUnit;
 import com.propertymgmt.property.model.RepairOrder;
 import com.propertymgmt.property.model.Resident;
 import com.propertymgmt.property.model.Role;
@@ -11,7 +10,6 @@ import com.propertymgmt.property.model.User;
 import com.propertymgmt.property.repository.AnnouncementRepository;
 import com.propertymgmt.property.repository.ComplaintRepository;
 import com.propertymgmt.property.repository.FeeBillRepository;
-import com.propertymgmt.property.repository.PropertyUnitRepository;
 import com.propertymgmt.property.repository.RepairOrderRepository;
 import com.propertymgmt.property.repository.ResidentRepository;
 import com.propertymgmt.property.repository.RoleRepository;
@@ -29,7 +27,6 @@ public class DataSeeder implements CommandLineRunner {
 
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
-    private final PropertyUnitRepository propertyUnitRepository;
     private final ResidentRepository residentRepository;
     private final FeeBillRepository feeBillRepository;
     private final ComplaintRepository complaintRepository;
@@ -39,7 +36,6 @@ public class DataSeeder implements CommandLineRunner {
 
     public DataSeeder(RoleRepository roleRepository,
                       UserRepository userRepository,
-                      PropertyUnitRepository propertyUnitRepository,
                       ResidentRepository residentRepository,
                       FeeBillRepository feeBillRepository,
                       ComplaintRepository complaintRepository,
@@ -48,7 +44,6 @@ public class DataSeeder implements CommandLineRunner {
                       PasswordEncoder passwordEncoder) {
         this.roleRepository = roleRepository;
         this.userRepository = userRepository;
-        this.propertyUnitRepository = propertyUnitRepository;
         this.residentRepository = residentRepository;
         this.feeBillRepository = feeBillRepository;
         this.complaintRepository = complaintRepository;
@@ -60,9 +55,8 @@ public class DataSeeder implements CommandLineRunner {
     @Override
     public void run(String... args) {
         seedRoles();
-        seedUsers();
-        seedPropertyUnits();
-        seedResidents();
+        seedResidents();  // 先创建住户
+        seedUsers();      // 再创建用户（需要关联住户）
         seedFeeBills();
         seedComplaints();
         seedRepairOrders();
@@ -73,6 +67,11 @@ public class DataSeeder implements CommandLineRunner {
         if (roleRepository.count() > 0) {
             return;
         }
+
+        // 注意：角色ID必须与SQL脚本中的ID一致
+        // ADMIN: 1, USER: 2, ENGINEER: 3
+        // 如果数据库是空的，请先运行 reset_roles.sql 脚本
+
         Role admin = new Role();
         admin.setCode("ADMIN");
         admin.setName("系统管理员");
@@ -80,7 +79,7 @@ public class DataSeeder implements CommandLineRunner {
 
         Role user = new Role();
         user.setCode("USER");
-        user.setName("业主用户");
+        user.setName("普通用户");
         user.setDescription("负责日常使用物业系统的业主");
 
         Role engineer = new Role();
@@ -99,6 +98,12 @@ public class DataSeeder implements CommandLineRunner {
         Role userRole = roleRepository.findByCode("USER").orElseThrow();
         Role engineerRole = roleRepository.findByCode("ENGINEER").orElseThrow();
 
+        // 获取住户用于关联
+        List<Resident> residents = residentRepository.findAll();
+        Resident zhangsan = residents.stream().filter(r -> "张三".equals(r.getName())).findFirst().orElse(null);
+        Resident lisi = residents.stream().filter(r -> "李四".equals(r.getName())).findFirst().orElse(null);
+
+        // 管理员用户（不关联住户）
         User admin = new User();
         admin.setUsername("admin");
         admin.setPassword(passwordEncoder.encode("123456"));
@@ -107,48 +112,27 @@ public class DataSeeder implements CommandLineRunner {
         admin.setEmail("admin@property.com");
         admin.getRoles().add(adminRole);
 
-        User resident = new User();
-        resident.setUsername("owner");
-        resident.setPassword(passwordEncoder.encode("123456"));
-        resident.setFullName("业主小张");
-        resident.setPhone("13800000002");
-        resident.setEmail("owner@property.com");
-        resident.getRoles().add(userRole);
+        // 普通用户（关联住户张三）
+        User owner = new User();
+        owner.setUsername("owner");
+        owner.setPassword(passwordEncoder.encode("123456"));
+        owner.setFullName("业主张三");
+        owner.setPhone("13800000002");
+        owner.setEmail("owner@property.com");
+        owner.setResident(zhangsan);  // 关联住户
+        owner.getRoles().add(userRole);
 
+        // 工程人员（关联住户李四）
         User engineer = new User();
         engineer.setUsername("engineer");
         engineer.setPassword(passwordEncoder.encode("123456"));
         engineer.setFullName("工程小王");
         engineer.setPhone("13800000004");
         engineer.setEmail("engineer@property.com");
+        engineer.setResident(lisi);  // 关联住户
         engineer.getRoles().add(engineerRole);
 
-        userRepository.saveAll(List.of(admin, resident, engineer));
-    }
-
-    private void seedPropertyUnits() {
-        if (propertyUnitRepository.count() > 0) {
-            return;
-        }
-        propertyUnitRepository.saveAll(List.of(
-            createPropertyUnit("1号楼", "2单元", "301", "120㎡", PropertyUnit.UnitStatus.OCCUPIED, "张三", "A-101"),
-            createPropertyUnit("1号楼", "2单元", "302", "95㎡", PropertyUnit.UnitStatus.OCCUPIED, "李四", "A-102"),
-            createPropertyUnit("2号楼", "1单元", "501", "150㎡", PropertyUnit.UnitStatus.OCCUPIED, "王五", "B-205"),
-            createPropertyUnit("3号楼", "3单元", "201", "88㎡", PropertyUnit.UnitStatus.VACANT, null, null)
-        ));
-    }
-
-    private PropertyUnit createPropertyUnit(String building, String unit, String room, String area,
-                                            PropertyUnit.UnitStatus status, String owner, String parking) {
-        PropertyUnit propertyUnit = new PropertyUnit();
-        propertyUnit.setBuilding(building);
-        propertyUnit.setUnit(unit);
-        propertyUnit.setRoomNumber(room);
-        propertyUnit.setArea(area);
-        propertyUnit.setStatus(status);
-        propertyUnit.setOwnerName(owner);
-        propertyUnit.setParkingSpace(parking);
-        return propertyUnit;
+        userRepository.saveAll(List.of(admin, owner, engineer));
     }
 
     private void seedResidents() {
@@ -156,10 +140,10 @@ public class DataSeeder implements CommandLineRunner {
             return;
         }
         residentRepository.saveAll(List.of(
-            createResident("张三", "138****1234", "1号楼", "2单元", "301", "120㎡", Resident.Status.OCCUPIED, LocalDate.of(2023, 1, 15)),
-            createResident("李四", "139****5678", "1号楼", "2单元", "302", "95㎡", Resident.Status.OCCUPIED, LocalDate.of(2023, 3, 20)),
-            createResident("王五", "136****9012", "2号楼", "1单元", "501", "150㎡", Resident.Status.OCCUPIED, LocalDate.of(2022, 12, 1)),
-            createResident("赵六", "137****3456", "3号楼", "3单元", "201", "88㎡", Resident.Status.VACANT, null)
+            createResident("张三", "13823451234", "1号楼", "2单元", "301", "120㎡", Resident.Status.OCCUPIED, LocalDate.of(2023, 1, 15)),
+            createResident("李四", "13944315678", "1号楼", "2单元", "302", "95㎡", Resident.Status.OCCUPIED, LocalDate.of(2023, 3, 20)),
+            createResident("王五", "13629639012", "2号楼", "1单元", "501", "150㎡", Resident.Status.OCCUPIED, LocalDate.of(2022, 12, 1)),
+            createResident("赵六", "13787764346", "3号楼", "3单元", "201", "88㎡", Resident.Status.VACANT, null)
         ));
     }
 

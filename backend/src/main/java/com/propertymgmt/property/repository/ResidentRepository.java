@@ -9,6 +9,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface ResidentRepository extends JpaRepository<Resident, Long> {
 
+    long countByStatus(Resident.Status status);
+
     @Query("""
         select r from Resident r
         where lower(r.name) like lower(concat('%', :keyword, '%'))

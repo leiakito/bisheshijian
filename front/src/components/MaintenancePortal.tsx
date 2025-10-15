@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
   Outlet,
   useLocation,
@@ -30,85 +30,57 @@ import {
   Star,
   LogOut,
 } from "lucide-react";
-import { clearMaintenanceSession, getMaintenanceSession } from "../utils/sessionManager";
+import { clearMaintenanceSession } from "../utils/sessionManager";
+import { getUserInfo } from "../utils/tokenManager";
+import { getAllRepairOrders, updateRepairOrderStatus } from "../services/repairService";
+import type { RepairOrder } from "../types/api";
+import { toast } from "sonner";
 
 type MaintenanceStatus = "pending" | "processing" | "completed";
 
-const orders = [
-  {
-    id: "R20250105001",
-    owner: "张三",
-    phone: "138****1234",
-    building: "1号楼",
-    unit: "2单元",
-    room: "301",
-    type: "水管漏水",
-    category: "水电维修",
-    description: "厨房水管接口处漏水，水流较大，需要紧急处理",
-    status: "待接单",
-    priority: "紧急",
-    submitTime: "2025-01-11 08:30",
-    images: 2,
-    assignedWorker: "王师傅",
-  },
-  {
-    id: "R20250105002",
-    owner: "李四",
-    phone: "139****5678",
-    building: "1号楼",
-    unit: "2单元",
-    room: "302",
-    type: "电梯故障",
-    category: "电梯维护",
-    description: "电梯按键失灵，2楼和3楼按钮无反应",
-    status: "处理中",
-    priority: "紧急",
-    submitTime: "2025-01-11 06:45",
-    images: 1,
-    assignedWorker: "王师傅",
-    startTime: "2025-01-11 07:00",
-  },
-  {
-    id: "R20250104001",
-    owner: "王五",
-    phone: "136****9012",
-    building: "2号楼",
-    unit: "1单元",
-    room: "501",
-    type: "门禁损坏",
-    category: "门禁维修",
-    description: "单元门禁刷卡无反应，可能是读卡器故障",
-    status: "已完成",
-    priority: "普通",
-    submitTime: "2025-01-10 16:20",
-    images: 0,
-    assignedWorker: "王师傅",
-    startTime: "2025-01-10 17:00",
-    finishTime: "2025-01-10 18:30",
-    rating: 5,
-    feedback: "维修很及时，师傅很专业！",
-  },
-  {
-    id: "R20250103001",
-    owner: "赵六",
-    phone: "137****3456",
-    building: "3号楼",
-    unit: "3单元",
-    room: "201",
-    type: "灯具维修",
-    category: "水电维修",
-    description: "客厅吸顶灯不亮，可能是灯管坏了",
-    status: "已完成",
-    priority: "普通",
-    submitTime: "2025-01-03 14:10",
-    images: 1,
-    assignedWorker: "王师傅",
-    startTime: "2025-01-03 15:00",
-    finishTime: "2025-01-03 16:00",
-    rating: 5,
-    feedback: "服务很好，已经修好了",
-  },
-];
+const STATUS_LABELS: Record<RepairOrder["status"], string> = {
+  PENDING: "待接单",
+  IN_PROGRESS: "处理中",
+  COMPLETED: "已完成",
+  CANCELLED: "已取消",
+};
+
+const STATUS_VARIANT: Record<RepairOrder["status"], "default" | "secondary" | "outline" | "destructive"> = {
+  PENDING: "outline",
+  IN_PROGRESS: "secondary",
+  COMPLETED: "default",
+  CANCELLED: "destructive",
+};
+
+const STATUS_ICON: Record<RepairOrder["status"], typeof AlertCircle> = {
+  PENDING: AlertCircle,
+  IN_PROGRESS: Clock,
+  COMPLETED: CheckCircle,
+  CANCELLED: AlertCircle,
+};
+
+const PRIORITY_LABELS: Record<NonNullable<RepairOrder["priority"]>, string> = {
+  NORMAL: "普通",
+  URGENT: "紧急",
+};
+
+const PRIORITY_VARIANT: Record<NonNullable<RepairOrder["priority"]>, "secondary" | "destructive"> = {
+  NORMAL: "secondary",
+  URGENT: "destructive",
+};
+
+const STATUS_ROUTE_MAP: Record<MaintenanceStatus, RepairOrder["status"]> = {
+  pending: "PENDING",
+  processing: "IN_PROGRESS",
+  completed: "COMPLETED",
+};
+
+const ROUTE_STATUS_MAP: Record<RepairOrder["status"], MaintenanceStatus | null> = {
+  PENDING: "pending",
+  IN_PROGRESS: "processing",
+  COMPLETED: "completed",
+  CANCELLED: "pending",
+};
 
 function getValidStatus(status?: string): MaintenanceStatus {
   if (status === "processing" || status === "completed") {
@@ -117,10 +89,35 @@ function getValidStatus(status?: string): MaintenanceStatus {
   return "pending";
 }
 
+function formatDateTime(value?: string | null): string {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString("zh-CN", {
+    hour12: false,
+  });
+}
+
+function isToday(value?: string | null): boolean {
+  if (!value) return false;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return false;
+  }
+  const now = new Date();
+  return (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  );
+}
+
 export function MaintenancePortalLayout() {
   const navigate = useNavigate();
-  const session = getMaintenanceSession();
-  const workerName = session?.name || "维修师傅";
+  const userInfo = getUserInfo();
+  const workerName = userInfo?.displayName || userInfo?.username || "维修师傅";
 
   const handleLogout = () => {
     clearMaintenanceSession();
@@ -163,21 +160,54 @@ export function MaintenanceOrdersPage() {
   const { status: statusParam, orderId } = useParams();
   const status = getValidStatus(statusParam);
   const location = useLocation();
+  const [orders, setOrders] = useState<RepairOrder[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [actionOrderId, setActionOrderId] = useState<number | null>(null);
+  const userInfo = getUserInfo();
+  const workerName = userInfo?.displayName || userInfo?.username || "维修师傅";
 
-  const filteredOrders = orders.filter((order) => {
-    if (status === "pending") return order.status === "待接单";
-    if (status === "processing") return order.status === "处理中";
-    return order.status === "已完成";
-  });
+  const fetchOrders = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await getAllRepairOrders();
+      setOrders(data);
+    } catch (error) {
+      console.error("Failed to load repair orders:", error);
+      toast.error("加载维修工单失败，请稍后重试");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const stats = {
-    pending: orders.filter((o) => o.status === "待接单").length,
-    processing: orders.filter((o) => o.status === "处理中").length,
-    completed: orders.filter((o) => o.status === "已完成").length,
-    todayCompleted: 3,
-  };
+  useEffect(() => {
+    void fetchOrders();
+  }, [fetchOrders]);
 
-  const currentOrder = orders.find((order) => order.id === orderId) || null;
+  const filteredOrders = useMemo(() => {
+    const backendStatus = STATUS_ROUTE_MAP[status];
+    return orders.filter((order) => order.status === backendStatus);
+  }, [orders, status]);
+
+  const stats = useMemo(() => {
+    const pending = orders.filter((o) => o.status === "PENDING").length;
+    const processing = orders.filter((o) => o.status === "IN_PROGRESS").length;
+    const completed = orders.filter((o) => o.status === "COMPLETED").length;
+    const todayCompleted = orders.filter(
+      (o) => o.status === "COMPLETED" && isToday(o.finishedAt),
+    ).length;
+    return { pending, processing, completed, todayCompleted };
+  }, [orders]);
+
+  const currentOrder = useMemo(() => {
+    if (!orderId) return null;
+    const numericId = Number(orderId);
+    if (!Number.isNaN(numericId)) {
+      const byId = orders.find((order) => order.id === numericId);
+      if (byId) return byId;
+    }
+    return orders.find((order) => order.orderNumber === orderId) || null;
+  }, [orderId, orders]);
+
   const isDialogOpen = Boolean(orderId);
 
   const handleTabChange = (nextStatus: string) => {
@@ -185,8 +215,10 @@ export function MaintenanceOrdersPage() {
     navigate(`/maintenance/orders/${valid}`, { replace: true });
   };
 
-  const handleViewDetail = (orderIdValue: string) => {
-    navigate(`/maintenance/orders/${status}/${orderIdValue}`);
+  const handleViewDetail = (order: RepairOrder) => {
+    const routeStatus = ROUTE_STATUS_MAP[order.status];
+    const targetStatus = routeStatus ?? "pending";
+    navigate(`/maintenance/orders/${targetStatus}/${order.id}`);
   };
 
   const handleDialogChange = (open: boolean) => {
@@ -202,85 +234,98 @@ export function MaintenanceOrdersPage() {
     }
   };
 
-  const handleAccept = (orderIdValue: string) => {
-    console.log("接单:", orderIdValue);
-    navigate(`/maintenance/orders/${status}`, { replace: true });
-  };
-
-  const handleStart = (orderIdValue: string) => {
-    console.log("开始处理:", orderIdValue);
-    navigate(`/maintenance/orders/${status}`, { replace: true });
-  };
-
-  const handleComplete = (orderIdValue: string) => {
-    console.log("完成工单:", orderIdValue);
-    navigate(`/maintenance/orders/${status}`, { replace: true });
-  };
-
-  const renderOrderCard = (order: typeof orders[number]) => (
-    <Card
-      key={order.id}
-      className="p-4 hover:shadow-md transition-shadow cursor-pointer"
-      onClick={() => handleViewDetail(order.id)}
-    >
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            <h4 className="text-gray-900">{order.type}</h4>
-            <Badge
-              variant={order.priority === "紧急" ? "destructive" : "secondary"}
-            >
-              {order.priority}
-            </Badge>
-            <Badge
-              variant={
-                order.status === "已完成"
-                  ? "default"
-                  : order.status === "处理中"
-                  ? "secondary"
-                  : "outline"
-              }
-            >
-              {order.status === "待接单" && <AlertCircle className="w-3 h-3 mr-1" />}
-              {order.status === "处理中" && <Clock className="w-3 h-3 mr-1" />}
-              {order.status === "已完成" && <CheckCircle className="w-3 h-3 mr-1" />}
-              {order.status}
-            </Badge>
-          </div>
-          <p className="text-gray-600 text-sm mb-2">{order.description}</p>
-          <div className="flex items-center gap-4 text-sm text-gray-500">
-            <span className="flex items-center gap-1">
-              <MapPin className="w-3 h-3" />
-              {order.building} {order.unit} {order.room}
-            </span>
-            <span className="flex items-center gap-1">
-              <User className="w-3 h-3" />
-              {order.owner}
-            </span>
-            <span className="flex items-center gap-1">
-              <Calendar className="w-3 h-3" />
-              {order.submitTime}
-            </span>
-          </div>
-        </div>
-      </div>
-      {order.status === "已完成" && order.rating && (
-        <div className="mt-3 pt-3 border-t">
-          <div className="flex items-center gap-2">
-            <div className="flex">
-              {[...Array(order.rating)].map((_, i) => (
-                <Star
-                  key={i}
-                  className="w-4 h-4 fill-yellow-400 text-yellow-400"
-                />
-              ))}
-            </div>
-            <span className="text-sm text-gray-600">{order.feedback}</span>
-          </div>
-        </div>
-      )}
-    </Card>
+  const handleStatusUpdate = useCallback(
+    async (order: RepairOrder, nextStatus: RepairOrder["status"], successMessage: string) => {
+      try {
+        setActionOrderId(order.id);
+        const updated = await updateRepairOrderStatus(order.id, {
+          status: nextStatus,
+          assignedWorker: workerName,
+        });
+        toast.success(successMessage);
+        await fetchOrders();
+        const routeStatus = ROUTE_STATUS_MAP[updated.status] ?? "pending";
+        navigate(`/maintenance/orders/${routeStatus}`, { replace: true });
+      } catch (error) {
+        console.error("Failed to update order status:", error);
+        toast.error("操作失败，请稍后重试");
+      } finally {
+        setActionOrderId(null);
+      }
+    },
+    [fetchOrders, navigate, workerName],
   );
+
+  const handleAccept = (order: RepairOrder) => {
+    void handleStatusUpdate(order, "IN_PROGRESS", "已接单，开始处理");
+  };
+
+  const handleComplete = (order: RepairOrder) => {
+    void handleStatusUpdate(order, "COMPLETED", "工单已完成");
+  };
+
+  const renderOrderCard = (order: RepairOrder) => {
+    const statusLabel = STATUS_LABELS[order.status] ?? order.status;
+    const StatusIcon = STATUS_ICON[order.status] ?? AlertCircle;
+    const statusVariant = STATUS_VARIANT[order.status] ?? "outline";
+    const priorityLabel = order.priority ? PRIORITY_LABELS[order.priority] ?? order.priority : "普通";
+    const priorityVariant = order.priority ? PRIORITY_VARIANT[order.priority] ?? "secondary" : "secondary";
+    const rating = order.evaluationScore ?? 0;
+    const description = order.description || "暂无描述";
+
+    return (
+      <Card
+        key={order.id ?? order.orderNumber}
+        className="p-4 hover:shadow-md transition-shadow cursor-pointer"
+        onClick={() => handleViewDetail(order)}
+      >
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <h4 className="text-gray-900">{order.type}</h4>
+              <Badge variant={priorityVariant}>{priorityLabel}</Badge>
+              <Badge variant={statusVariant}>
+                <StatusIcon className="w-3 h-3 mr-1" />
+                {statusLabel}
+              </Badge>
+            </div>
+            <p className="text-gray-600 text-sm mb-2">{description}</p>
+            <div className="flex items-center gap-4 text-sm text-gray-500">
+              <span className="flex items-center gap-1">
+                <MapPin className="w-3 h-3" />
+                {order.building} {order.unit} {order.roomNumber}
+              </span>
+              <span className="flex items-center gap-1">
+                <User className="w-3 h-3" />
+                {order.ownerName}
+              </span>
+              <span className="flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                {formatDateTime(order.createdAt)}
+              </span>
+            </div>
+          </div>
+        </div>
+        {order.status === "COMPLETED" && rating > 0 && (
+          <div className="mt-3 pt-3 border-t">
+            <div className="flex items-center gap-2">
+              <div className="flex">
+                {[...Array(rating)].map((_, i) => (
+                  <Star
+                    key={i}
+                    className="w-4 h-4 fill-yellow-400 text-yellow-400"
+                  />
+                ))}
+              </div>
+              <span className="text-sm text-gray-600">
+                {order.evaluationRemark || "业主已评价"}
+              </span>
+            </div>
+          </div>
+        )}
+      </Card>
+    );
+  };
 
   return (
     <Fragment>
@@ -353,8 +398,14 @@ export function MaintenanceOrdersPage() {
               filteredOrders.map((order) => renderOrderCard(order))
             ) : (
               <div className="text-center py-12 text-gray-500">
-                <Wrench className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                <p>暂无待接单工单</p>
+                {loading ? (
+                  <p>加载中...</p>
+                ) : (
+                  <>
+                    <Wrench className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                    <p>暂无待接单工单</p>
+                  </>
+                )}
               </div>
             )}
           </TabsContent>
@@ -364,8 +415,14 @@ export function MaintenanceOrdersPage() {
               filteredOrders.map((order) => renderOrderCard(order))
             ) : (
               <div className="text-center py-12 text-gray-500">
-                <Clock className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                <p>暂无进行中工单</p>
+                {loading ? (
+                  <p>加载中...</p>
+                ) : (
+                  <>
+                    <Clock className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                    <p>暂无进行中工单</p>
+                  </>
+                )}
               </div>
             )}
           </TabsContent>
@@ -375,8 +432,14 @@ export function MaintenanceOrdersPage() {
               filteredOrders.map((order) => renderOrderCard(order))
             ) : (
               <div className="text-center py-12 text-gray-500">
-                <CheckCircle className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                <p>暂无完成工单</p>
+                {loading ? (
+                  <p>加载中...</p>
+                ) : (
+                  <>
+                    <CheckCircle className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                    <p>暂无完成工单</p>
+                  </>
+                )}
               </div>
             )}
           </TabsContent>
@@ -387,9 +450,9 @@ export function MaintenanceOrdersPage() {
         <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>工单详情 - {currentOrder.id}</DialogTitle>
+              <DialogTitle>工单详情 - {currentOrder.orderNumber}</DialogTitle>
               <DialogDescription>
-                {currentOrder.category} / {currentOrder.type}
+                {currentOrder.orderNumber} / {currentOrder.type}
               </DialogDescription>
             </DialogHeader>
 
@@ -397,23 +460,21 @@ export function MaintenanceOrdersPage() {
               <div className="flex items-center gap-2">
                 <Badge
                   variant={
-                    currentOrder.status === "已完成"
-                      ? "default"
-                      : currentOrder.status === "处理中"
-                      ? "secondary"
-                      : "outline"
+                    STATUS_VARIANT[currentOrder.status] ?? "outline"
                   }
                 >
-                  {currentOrder.status}
+                  {STATUS_LABELS[currentOrder.status] ?? currentOrder.status}
                 </Badge>
                 <Badge
                   variant={
-                    currentOrder.priority === "紧急"
-                      ? "destructive"
+                    currentOrder.priority
+                      ? PRIORITY_VARIANT[currentOrder.priority] ?? "secondary"
                       : "secondary"
                   }
                 >
-                  {currentOrder.priority}
+                  {currentOrder.priority
+                    ? PRIORITY_LABELS[currentOrder.priority] ?? currentOrder.priority
+                    : "普通"}
                 </Badge>
               </div>
 
@@ -423,7 +484,7 @@ export function MaintenanceOrdersPage() {
                   <div className="flex items-center gap-2">
                     <User className="w-4 h-4 text-gray-500" />
                     <span className="text-gray-600">业主：</span>
-                    <span className="text-gray-900">{currentOrder.owner}</span>
+                    <span className="text-gray-900">{currentOrder.ownerName}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Phone className="w-4 h-4 text-gray-500" />
@@ -435,7 +496,7 @@ export function MaintenanceOrdersPage() {
                     <span className="text-gray-600">地址：</span>
                     <span className="text-gray-900">
                       {currentOrder.building} {currentOrder.unit}{" "}
-                      {currentOrder.room}
+                      {currentOrder.roomNumber}
                     </span>
                   </div>
                 </div>
@@ -444,47 +505,47 @@ export function MaintenanceOrdersPage() {
               <div className="space-y-3">
                 <h4 className="text-gray-900">问题描述</h4>
                 <p className="text-gray-600 leading-relaxed">
-                  {currentOrder.description}
+                  {currentOrder.description || "暂无描述"}
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-sm text-gray-600">
-                <span>提交时间：{currentOrder.submitTime}</span>
-                {currentOrder.startTime && (
-                  <span>开始时间：{currentOrder.startTime}</span>
+                <span>提交时间：{formatDateTime(currentOrder.createdAt)}</span>
+                {currentOrder.startedAt && (
+                  <span>开始时间：{formatDateTime(currentOrder.startedAt)}</span>
                 )}
-                {currentOrder.finishTime && (
-                  <span>完成时间：{currentOrder.finishTime}</span>
+                {currentOrder.finishedAt && (
+                  <span>完成时间：{formatDateTime(currentOrder.finishedAt)}</span>
+                )}
+                {currentOrder.assignedWorker && (
+                  <span>维修人员：{currentOrder.assignedWorker}</span>
                 )}
               </div>
 
-              <div className="space-y-3">
-                <h4 className="text-gray-900">处理备注</h4>
-                <Textarea placeholder="填写处理过程和结果" className="min-h-[120px]" />
-              </div>
+           
 
               <div className="flex items-center justify-end gap-3">
-                {currentOrder.status === "待接单" && (
-                  <Button onClick={() => handleAccept(currentOrder.id)}>
+                {currentOrder.status === "PENDING" && (
+                  <Button
+                    onClick={() => handleAccept(currentOrder)}
+                    disabled={actionOrderId === currentOrder.id}
+                  >
                     接单
                   </Button>
                 )}
-                {currentOrder.status === "处理中" && (
-                  <Fragment>
-                    <Button
-                      variant="outline"
-                      onClick={() => handleStart(currentOrder.id)}
-                    >
-                      开始处理
-                    </Button>
-                    <Button onClick={() => handleComplete(currentOrder.id)}>
-                      完成工单
-                    </Button>
-                  </Fragment>
+                {currentOrder.status === "IN_PROGRESS" && (
+                  <Button
+                    onClick={() => handleComplete(currentOrder)}
+                    disabled={actionOrderId === currentOrder.id}
+                  >
+                    完成工单
+                  </Button>
                 )}
-                {currentOrder.status === "已完成" && (
+                {currentOrder.status === "COMPLETED" && (
                   <Badge variant="outline">
-                    {currentOrder.rating ? `业主评分：${currentOrder.rating}分` : "待评价"}
+                    {currentOrder.evaluationScore
+                      ? `业主评分：${currentOrder.evaluationScore}分`
+                      : "待评价"}
                   </Badge>
                 )}
               </div>

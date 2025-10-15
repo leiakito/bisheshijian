@@ -6,19 +6,21 @@ import { Card } from "./ui/card";
 import { Wrench, ArrowLeft } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import type { Location } from "react-router-dom";
-import { setMaintenanceSession } from "../utils/sessionManager";
+import { login } from "../services/authService";
+import { clearAuth } from "../utils/tokenManager";
 
 export function MaintenanceLogin() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const from =
     (location.state as { from?: Location } | undefined)?.from?.pathname ??
     "/maintenance/orders/pending";
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -32,9 +34,29 @@ export function MaintenanceLogin() {
       return;
     }
 
-    // 模拟登录
-    setMaintenanceSession({ name: username });
-    navigate(from, { replace: true });
+    setLoading(true);
+
+    try {
+      // 调用后端登录API
+      const response = await login({ username, password });
+
+      // 验证用户是否有维护人员权限（仅允许ENGINEER角色）
+      if (!response.roles.includes("ROLE_ENGINEER")) {
+        // 角色不匹配，清除已保存的token
+        clearAuth();
+        setError("您没有维护人员权限，请使用维护人员账号登录");
+        setLoading(false);
+        return;
+      }
+
+      // 登录成功，跳转到维护人员工作台
+      navigate(from, { replace: true });
+    } catch (err) {
+      console.error("Login error:", err);
+      setError(err instanceof Error ? err.message : "登录失败，请检查工号和密码");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -99,18 +121,24 @@ export function MaintenanceLogin() {
               <Button
                 type="submit"
                 className="w-full bg-orange-600 hover:bg-orange-700"
+                disabled={loading}
               >
-                登录
+                {loading ? "登录中..." : "登录"}
               </Button>
             </form>
 
-            {/* 提示信息 */}
-            <div className="mt-6 p-4 bg-orange-50 rounded-lg">
-              <p className="text-sm text-orange-800">
-                <span className="block">演示工号：维修001</span>
-                <span className="block mt-1">密码：任意6位以上</span>
-              </p>
-            </div>
+           {/* 返回主页按钮 */}
+          <div>
+            <Button
+              type="button"
+              className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800"
+              onClick={() => {
+                window.location.href = "http://localhost:3000/";
+              }}
+            >
+              返回主页
+            </Button>
+          </div>
 
             {/* 帮助信息 */}
             <div className="mt-6 text-center text-sm text-gray-500">

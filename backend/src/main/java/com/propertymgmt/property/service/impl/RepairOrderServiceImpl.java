@@ -28,6 +28,13 @@ public class RepairOrderServiceImpl implements RepairOrderService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public RepairOrder findById(Long id) {
+        return repairOrderRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("报修订单不存在"));
+    }
+
+    @Override
     public RepairOrder create(RepairOrderRequest request) {
         RepairOrder order = new RepairOrder();
         order.setOrderNumber(generateOrderNumber());

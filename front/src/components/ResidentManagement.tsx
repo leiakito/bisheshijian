@@ -31,6 +31,37 @@ import {
 import type { Resident, ResidentRequest } from "../types/api";
 import { toast } from "sonner";
 
+const sanitizeAreaInput = (value: string): string => {
+  let sanitized = value.replace(/[^\d.]/g, "");
+  const parts = sanitized.split(".");
+  if (parts.length > 2) {
+    sanitized = parts[0] + "." + parts.slice(1).join("");
+  }
+  if (sanitized.startsWith(".")) {
+    sanitized = `0${sanitized}`;
+  }
+  return sanitized;
+};
+
+const sanitizeAreaForApi = (value?: string | null): string | undefined => {
+  if (!value) return undefined;
+  const sanitized = sanitizeAreaInput(value).replace(/\.$/, "");
+  return sanitized || undefined;
+};
+
+const extractAreaValue = (area?: string | null): string => {
+  if (!area) return "";
+  const numeric = area.replace(/[^\d.]/g, "");
+  return numeric;
+};
+
+const formatAreaDisplay = (area?: string | null): string => {
+  if (!area || !area.trim()) {
+    return "-";
+  }
+  return area;
+};
+
 export function ResidentManagement() {
   const [searchQuery, setSearchQuery] = useState("");
   const [residents, setResidents] = useState<Resident[]>([]);
@@ -81,7 +112,11 @@ export function ResidentManagement() {
 
   const handleAdd = async () => {
     try {
-      await createResident(formData);
+      const payload: ResidentRequest = {
+        ...formData,
+        area: sanitizeAreaForApi(formData.area),
+      };
+      await createResident(payload);
       toast.success("新增业主成功");
       setIsAddDialogOpen(false);
       resetForm();
@@ -101,7 +136,7 @@ export function ResidentManagement() {
       building: resident.building,
       unit: resident.unit,
       roomNumber: resident.roomNumber,
-      area: resident.area || "",
+      area: extractAreaValue(resident.area),
       residenceType: resident.residenceType,
       moveInDate: resident.moveInDate,
       status: resident.status,
@@ -116,7 +151,11 @@ export function ResidentManagement() {
     if (!editingResident) return;
 
     try {
-      await updateResident(editingResident.id, formData);
+      const payload: ResidentRequest = {
+        ...formData,
+        area: sanitizeAreaForApi(formData.area),
+      };
+      await updateResident(editingResident.id, payload);
       toast.success("更新业主信息成功");
       setIsEditDialogOpen(false);
       resetForm();
@@ -275,6 +314,20 @@ export function ResidentManagement() {
                       }
                     />
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>房屋面积 (㎡)</Label>
+                  <Input
+                    placeholder="例如 120"
+                    value={formData.area}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        area: sanitizeAreaInput(e.target.value),
+                      })
+                    }
+                  />
+                  <p className="text-xs text-gray-500">暂不需要输入单位，系统会自动补全“㎡”</p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -437,6 +490,20 @@ export function ResidentManagement() {
                 />
               </div>
             </div>
+            <div className="space-y-2">
+              <Label>房屋面积 (㎡)</Label>
+              <Input
+                placeholder="例如 120"
+                value={formData.area}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    area: sanitizeAreaInput(e.target.value),
+                  })
+                }
+              />
+              <p className="text-xs text-gray-500">仅输入数字，保存时系统自动补全“㎡”</p>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>居住类型</Label>
@@ -559,6 +626,7 @@ export function ResidentManagement() {
                     <TableHead>业主姓名</TableHead>
                     <TableHead>联系电话</TableHead>
                     <TableHead>房屋地址</TableHead>
+                    <TableHead>面积</TableHead>
                     <TableHead>居住类型</TableHead>
                     <TableHead>状态</TableHead>
                     <TableHead>入住日期</TableHead>
@@ -573,6 +641,7 @@ export function ResidentManagement() {
                       <TableCell>
                         {resident.building} {resident.unit} {resident.roomNumber}
                       </TableCell>
+                      <TableCell>{formatAreaDisplay(resident.area)}</TableCell>
                       <TableCell>
                         {resident.residenceType === "OWNER" ? "业主" : "租户"}
                       </TableCell>

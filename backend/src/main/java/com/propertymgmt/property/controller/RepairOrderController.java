@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -26,7 +27,16 @@ public class RepairOrderController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<RepairOrder>>> list() {
+    public ResponseEntity<ApiResponse<List<RepairOrder>>> list(
+            @RequestParam(required = false) String ownerName) {
+        if (ownerName != null && !ownerName.isEmpty()) {
+            // 如果提供了业主姓名，筛选该业主的报修记录
+            List<RepairOrder> allOrders = repairOrderService.findAll();
+            List<RepairOrder> filtered = allOrders.stream()
+                .filter(order -> ownerName.equals(order.getOwnerName()))
+                .toList();
+            return ResponseEntity.ok(ApiResponse.ok(filtered));
+        }
         return ResponseEntity.ok(ApiResponse.ok(repairOrderService.findAll()));
     }
 
@@ -39,5 +49,10 @@ public class RepairOrderController {
     public ResponseEntity<ApiResponse<RepairOrder>> updateStatus(@PathVariable Long id,
                                                                  @Valid @RequestBody RepairStatusUpdateRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(repairOrderService.updateStatus(id, request)));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<RepairOrder>> getById(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.ok(repairOrderService.findById(id)));
     }
 }

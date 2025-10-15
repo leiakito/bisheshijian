@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { isResidentAuthenticated } from "../utils/sessionManager";
+import { isAuthenticated, getUserInfo } from "../utils/tokenManager";
 
 interface ResidentProtectedRouteProps {
   children: ReactNode;
@@ -11,7 +11,24 @@ export function ResidentProtectedRoute({
 }: ResidentProtectedRouteProps) {
   const location = useLocation();
 
-  if (!isResidentAuthenticated()) {
+  // 检查是否有有效的JWT token
+  if (!isAuthenticated()) {
+    return (
+      <Navigate
+        to="/resident/login"
+        state={{ from: location }}
+        replace
+      />
+    );
+  }
+
+  // 检查用户是否有USER角色
+  const userInfo = getUserInfo();
+  const hasResidentAccess = userInfo?.roles.some(
+    (role) => role === "ROLE_USER"
+  );
+
+  if (!hasResidentAccess) {
     return (
       <Navigate
         to="/resident/login"

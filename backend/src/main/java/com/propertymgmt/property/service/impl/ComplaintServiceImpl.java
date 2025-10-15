@@ -1,6 +1,7 @@
 package com.propertymgmt.property.service.impl;
 
 import com.propertymgmt.property.dto.ComplaintRequest;
+import com.propertymgmt.property.dto.ComplaintUpdateRequest;
 import com.propertymgmt.property.model.Complaint;
 import com.propertymgmt.property.repository.ComplaintRepository;
 import com.propertymgmt.property.service.ComplaintService;
@@ -26,6 +27,13 @@ public class ComplaintServiceImpl implements ComplaintService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Complaint findById(Long id) {
+        return complaintRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("投诉记录不存在"));
+    }
+
+    @Override
     public Complaint create(ComplaintRequest request) {
         Complaint complaint = new Complaint();
         complaint.setOwnerName(request.getOwnerName());
@@ -34,6 +42,26 @@ public class ComplaintServiceImpl implements ComplaintService {
         complaint.setDescription(request.getDescription());
         complaint.setStatus(Complaint.ComplaintStatus.RECEIVED);
         complaint.setFeedbackDeadline(LocalDateTime.now().plusDays(1));
+        return complaintRepository.save(complaint);
+    }
+
+    @Override
+    public Complaint updateStatus(Long id, ComplaintUpdateRequest request) {
+        Complaint complaint = findById(id);
+
+        // 更新状态
+        complaint.setStatus(Complaint.ComplaintStatus.valueOf(request.getStatus()));
+
+        // 更新处理人
+        if (request.getProcessedBy() != null) {
+            complaint.setProcessedBy(request.getProcessedBy());
+        }
+
+        // 更新回复
+        if (request.getReply() != null) {
+            complaint.setReply(request.getReply());
+        }
+
         return complaintRepository.save(complaint);
     }
 }

@@ -1,4 +1,4 @@
-import { post } from "../utils/apiClient";
+import { get, post } from "../utils/apiClient";
 import { saveToken, clearAuth } from "../utils/tokenManager";
 import type { LoginRequest, LoginResponse } from "../types/api";
 
@@ -21,6 +21,28 @@ export async function login(credentials: LoginRequest): Promise<LoginResponse> {
 }
 
 /**
+ * 获取当前用户信息
+ */
+export async function getCurrentUser(): Promise<{
+  username: string;
+  fullName: string;
+  phone: string;
+  email: string;
+  resident?: {
+    id: number;
+    name: string;
+    phone: string;
+    building: string;
+    unit: string;
+    roomNumber: string;
+    area: string;
+    status: string;
+  };
+}> {
+  return get("/auth/me");
+}
+
+/**
  * 用户登出
  */
 export function logout(): void {
@@ -29,5 +51,6 @@ export function logout(): void {
 
 export default {
   login,
+  getCurrentUser,
   logout,
 };

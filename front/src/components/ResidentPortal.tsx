@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useState, useEffect } from "react";
 import {
   Outlet,
   useLocation,
@@ -26,94 +26,22 @@ import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { SubmitRepairDialog } from "./SubmitRepairDialog";
 import { SubmitComplaintDialog } from "./SubmitComplaintDialog";
-import { clearResidentSession } from "../utils/sessionManager";
+import { clearAuth } from "../utils/tokenManager";
+import { getCurrentUser } from "../services/authService";
+import { getAllBills, createPayment } from "../services/feeService";
+import { getAllRepairOrders } from "../services/repairService";
+import { getAllComplaints } from "../services/complaintService";
+import { getLatestAnnouncements } from "../services/announcementService";
+import type { Bill, RepairOrder, Complaint, Announcement } from "../types/api";
 
-const residentInfo = {
-  name: "张三",
-  phone: "138****1234",
-  building: "1号楼",
-  unit: "2单元",
-  room: "301",
-  area: "120㎡",
-};
-
-const unpaidBills = [
-  {
-    id: "1",
-    type: "物业费",
-    period: "2025年1月",
-    amount: 2400,
-    dueDate: "2025-01-15",
-    status: "待缴费",
-  },
-  {
-    id: "2",
-    type: "停车费",
-    period: "2025年1月",
-    amount: 300,
-    dueDate: "2025-01-15",
-    status: "待缴费",
-  },
-];
-
-const paymentHistory = [
-  {
-    id: "1",
-    type: "物业费",
-    period: "2024年12月",
-    amount: 2400,
-    payDate: "2024-12-05",
-    method: "微信支付",
-    status: "已缴费",
-  },
-  {
-    id: "2",
-    type: "物业费+停车费",
-    period: "2024年11月",
-    amount: 2700,
-    payDate: "2024-11-03",
-    method: "支付宝",
-    status: "已缴费",
-  },
-];
-
-const myRepairs = [
-  {
-    id: "R20250105001",
-    type: "水管漏水",
-    description: "厨房水管接口处漏水",
-    status: "处理中",
-    submitTime: "2025-01-05 08:30",
-    handler: "王师傅",
-    rating: null,
-  },
-  {
-    id: "R20250103001",
-    type: "灯具维修",
-    description: "客厅吸顶灯不亮",
-    status: "已完成",
-    submitTime: "2025-01-03 14:10",
-    handler: "王师傅",
-    rating: 5,
-  },
-];
-
-const announcements = [
-  {
-    id: "1",
-    title: "本月物业费缴纳通知",
-    date: "2025-01-10",
-    type: "缴费通知",
-    content: "尊敬的业主：2025年1月物业费已生成账单，请及时缴纳...",
-  },
-  {
-    id: "2",
-    title: "春节期间服务安排",
-    date: "2025-01-08",
-    type: "重要通知",
-    content: "春节假期期间，物业服务热线保持24小时开通...",
-  },
-];
+interface ResidentInfo {
+  name: string;
+  phone: string;
+  building: string;
+  unit: string;
+  roomNumber: string;
+  area: string;
+}
 
 type ResidentSection =
   | "home"
@@ -210,6 +138,51 @@ export function ResidentPortalLayout() {
 
 export function ResidentHomePage() {
   const navigate = useNavigate();
+  const [residentInfo, setResidentInfo] = useState<ResidentInfo | null>(null);
+  const [unpaidBills, setUnpaidBills] = useState<Bill[]>([]);
+  const [myRepairs, setMyRepairs] = useState<RepairOrder[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const userInfo = await getCurrentUser();
+
+        if (userInfo.resident) {
+          setResidentInfo({
+            name: userInfo.resident.name,
+            phone: userInfo.resident.phone,
+            building: userInfo.resident.building,
+            unit: userInfo.resident.unit,
+            roomNumber: userInfo.resident.roomNumber,
+            area: userInfo.resident.area,
+          });
+
+          // 加载该业主的数据
+          const [bills, repairs, announcements] = await Promise.all([
+            getAllBills(userInfo.resident.name),
+            getAllRepairOrders(userInfo.resident.name),
+            getLatestAnnouncements(),
+          ]);
+
+          setUnpaidBills(bills.filter(b => b.status === "PENDING" || b.status === "OVERDUE"));
+          setMyRepairs(repairs);
+          setAnnouncements(announcements);
+        }
+      } catch (error) {
+        console.error("Failed to load data:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, []);
+
+  if (loading || !residentInfo) {
+    return <div className="text-center py-12">加载中...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -223,7 +196,7 @@ export function ResidentHomePage() {
           <div className="flex-1">
             <h2 className="text-white mb-1">{residentInfo.name}</h2>
             <p className="text-blue-100">
-              {residentInfo.building} {residentInfo.unit} {residentInfo.room}
+              {residentInfo.building} {residentInfo.unit} {residentInfo.roomNumber}
             </p>
           </div>
           <Button
@@ -246,7 +219,7 @@ export function ResidentHomePage() {
           </div>
           <span className="text-sm text-gray-900">缴费</span>
           {unpaidBills.length > 0 && (
-            <Badge variant="destructive" className="text-xs">
+            <Badge variant="destructive" className="absolute top-2 right-2 text-xs">
               {unpaidBills.length}
             </Badge>
           )}
@@ -303,11 +276,10 @@ export function ResidentHomePage() {
               >
                 <div>
                   <h4 className="text-gray-900">{bill.type}</h4>
-                  <p className="text-sm text-gray-500">{bill.period}</p>
+                  <p className="text-sm text-gray-500">{bill.billingPeriod}</p>
                 </div>
                 <div className="text-right">
                   <h4 className="text-orange-600">¥{bill.amount}</h4>
-                  <p className="text-xs text-gray-500">截止：{bill.dueDate}</p>
                 </div>
               </div>
             ))}
@@ -338,9 +310,11 @@ export function ResidentHomePage() {
                   <p className="text-sm text-gray-500">{repair.description}</p>
                 </div>
                 <Badge
-                  variant={repair.status === "已完成" ? "default" : "secondary"}
+                  variant={repair.status === "COMPLETED" ? "default" : "secondary"}
                 >
-                  {repair.status}
+                  {repair.status === "PENDING" && "待处理"}
+                  {repair.status === "IN_PROGRESS" && "处理中"}
+                  {repair.status === "COMPLETED" && "已完成"}
                 </Badge>
               </div>
             ))}
@@ -370,9 +344,11 @@ export function ResidentHomePage() {
             >
               <div className="flex items-center gap-2 mb-2">
                 <h4 className="text-gray-900 flex-1">{announcement.title}</h4>
-                <Badge variant="outline">{announcement.type}</Badge>
+                <Badge variant="outline">{announcement.targetScope}</Badge>
               </div>
-              <p className="text-sm text-gray-500">{announcement.date}</p>
+              <p className="text-sm text-gray-500">
+                {announcement.publishAt ? new Date(announcement.publishAt).toLocaleDateString() : ''}
+              </p>
             </div>
           ))}
         </div>
@@ -382,12 +358,55 @@ export function ResidentHomePage() {
 }
 
 export function ResidentPaymentPage() {
+  const [unpaidBills, setUnpaidBills] = useState<Bill[]>([]);
+  const [paidBills, setPaidBills] = useState<Bill[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadBills() {
+      try {
+        const userInfo = await getCurrentUser();
+        if (userInfo.resident) {
+          const bills = await getAllBills(userInfo.resident.name);
+          setUnpaidBills(bills.filter(b => b.status === "PENDING" || b.status === "OVERDUE"));
+          setPaidBills(bills.filter(b => b.status === "PAID"));
+        }
+      } catch (error) {
+        console.error("Failed to load bills:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadBills();
+  }, []);
+
+  const handlePayment = async (billId: number) => {
+    try {
+      await createPayment({ billId, payMethod: "微信支付" });
+      // 重新加载账单
+      const userInfo = await getCurrentUser();
+      if (userInfo.resident) {
+        const bills = await getAllBills(userInfo.resident.name);
+        setUnpaidBills(bills.filter(b => b.status === "PENDING" || b.status === "OVERDUE"));
+        setPaidBills(bills.filter(b => b.status === "PAID"));
+      }
+    } catch (error) {
+      console.error("Payment failed:", error);
+      alert("缴费失败，请稍后重试");
+    }
+  };
+
+  if (loading) {
+    return <div className="text-center py-12">加载中...</div>;
+  }
+
   return (
     <div className="space-y-6">
       <Tabs defaultValue="unpaid">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="unpaid">待缴费 ({unpaidBills.length})</TabsTrigger>
-          <TabsTrigger value="history">缴费记录</TabsTrigger>
+          <TabsTrigger value="history">缴费记录 ({paidBills.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="unpaid" className="space-y-4 mt-6">
@@ -396,45 +415,59 @@ export function ResidentPaymentPage() {
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <h3 className="text-gray-900 mb-1">{bill.type}</h3>
-                  <p className="text-sm text-gray-500">账期：{bill.period}</p>
-                  <p className="text-sm text-gray-500">截止日期：{bill.dueDate}</p>
+                  <p className="text-sm text-gray-500">账期：{bill.billingPeriod}</p>
                 </div>
-                <Badge variant="secondary">{bill.status}</Badge>
+                <Badge variant={bill.status === "OVERDUE" ? "destructive" : "secondary"}>
+                  {bill.status === "OVERDUE" ? "已逾期" : "待缴费"}
+                </Badge>
               </div>
               <div className="flex items-center justify-between pt-4 border-t">
                 <div>
                   <p className="text-sm text-gray-500 mb-1">应缴金额</p>
                   <h2 className="text-orange-600">¥{bill.amount}</h2>
                 </div>
-                <Button className="bg-blue-600 hover:bg-blue-700">立即缴费</Button>
+                <Button
+                  className="bg-blue-600 hover:bg-blue-700"
+                  onClick={() => handlePayment(bill.id)}
+                >
+                  立即缴费
+                </Button>
               </div>
             </Card>
           ))}
+          {unpaidBills.length === 0 && (
+            <div className="text-center py-12 text-gray-500">暂无待缴费账单</div>
+          )}
         </TabsContent>
 
         <TabsContent value="history" className="space-y-4 mt-6">
-          {paymentHistory.map((payment) => (
-            <Card key={payment.id} className="p-6">
+          {paidBills.map((bill) => (
+            <Card key={bill.id} className="p-6">
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h3 className="text-gray-900 mb-1">{payment.type}</h3>
-                  <p className="text-sm text-gray-500">账期：{payment.period}</p>
-                  <p className="text-sm text-gray-500">缴费时间：{payment.payDate}</p>
+                  <h3 className="text-gray-900 mb-1">{bill.type}</h3>
+                  <p className="text-sm text-gray-500">账期：{bill.billingPeriod}</p>
+                  <p className="text-sm text-gray-500">
+                    缴费时间：{bill.paidAt ? new Date(bill.paidAt).toLocaleDateString() : ''}
+                  </p>
                 </div>
                 <Badge variant="default">
                   <CheckCircle className="w-3 h-3 mr-1" />
-                  {payment.status}
+                  已缴费
                 </Badge>
               </div>
               <div className="flex items-center justify-between pt-4 border-t">
                 <div>
                   <p className="text-sm text-gray-500 mb-1">缴费金额</p>
-                  <h3 className="text-green-600">¥{payment.amount}</h3>
+                  <h3 className="text-green-600">¥{bill.amount}</h3>
                 </div>
-                <Badge variant="outline">{payment.method}</Badge>
+                {bill.payMethod && <Badge variant="outline">{bill.payMethod}</Badge>}
               </div>
             </Card>
           ))}
+          {paidBills.length === 0 && (
+            <div className="text-center py-12 text-gray-500">暂无缴费记录</div>
+          )}
         </TabsContent>
       </Tabs>
     </div>
@@ -445,14 +478,40 @@ export function ResidentRepairPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const isDialogOpen = location.pathname === "/resident/repair/new";
+  const [myRepairs, setMyRepairs] = useState<RepairOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadRepairs = async () => {
+    try {
+      const userInfo = await getCurrentUser();
+      if (userInfo.resident) {
+        const repairs = await getAllRepairOrders(userInfo.resident.name);
+        setMyRepairs(repairs);
+      }
+    } catch (error) {
+      console.error("Failed to load repairs:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRepairs();
+  }, []);
 
   const handleDialogChange = (open: boolean) => {
     if (open) {
       navigate("/resident/repair/new", { replace: true });
     } else {
       navigate("/resident/repair", { replace: true });
+      // 重新加载数据
+      loadRepairs();
     }
   };
+
+  if (loading) {
+    return <div className="text-center py-12">加载中...</div>;
+  }
 
   return (
     <Fragment>
@@ -475,42 +534,42 @@ export function ResidentRepairPage() {
                     <h3 className="text-gray-900">{repair.type}</h3>
                     <Badge
                       variant={
-                        repair.status === "已完成"
+                        repair.status === "COMPLETED"
                           ? "default"
-                          : repair.status === "处理中"
+                          : repair.status === "IN_PROGRESS"
                           ? "secondary"
                           : "outline"
                       }
                     >
-                      {repair.status === "处理中" && (
+                      {repair.status === "IN_PROGRESS" && (
                         <Clock className="w-3 h-3 mr-1" />
                       )}
-                      {repair.status === "已完成" && (
+                      {repair.status === "COMPLETED" && (
                         <CheckCircle className="w-3 h-3 mr-1" />
                       )}
-                      {repair.status}
+                      {repair.status === "PENDING" && "待处理"}
+                      {repair.status === "IN_PROGRESS" && "处理中"}
+                      {repair.status === "COMPLETED" && "已完成"}
                     </Badge>
                   </div>
                   <p className="text-gray-600 mb-3">{repair.description}</p>
                   <div className="flex items-center gap-4 text-sm text-gray-500">
-                    <span>工单号：{repair.id}</span>
-                    <span>提交时间：{repair.submitTime}</span>
+                    <span>工单号：{repair.orderNumber}</span>
+                    <span>提交时间：{repair.createdAt ? new Date(repair.createdAt).toLocaleString() : ''}</span>
                   </div>
                 </div>
               </div>
-              {repair.handler && (
+              {repair.assignedWorker && (
                 <div className="flex items-center gap-2 text-sm text-gray-600 pt-4 border-t">
                   <User className="w-4 h-4" />
-                  <span>维修人员：{repair.handler}</span>
+                  <span>维修人员：{repair.assignedWorker}</span>
                 </div>
-              )}
-              {repair.status === "已完成" && !repair.rating && (
-                <Button variant="outline" className="w-full mt-4">
-                  评价服务
-                </Button>
               )}
             </Card>
           ))}
+          {myRepairs.length === 0 && (
+            <div className="text-center py-12 text-gray-500">暂无报修记录</div>
+          )}
         </div>
       </div>
 
@@ -523,14 +582,40 @@ export function ResidentComplaintPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const isDialogOpen = location.pathname === "/resident/complaint/new";
+  const [myComplaints, setMyComplaints] = useState<Complaint[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadComplaints = async () => {
+    try {
+      const userInfo = await getCurrentUser();
+      if (userInfo.resident) {
+        const complaints = await getAllComplaints(userInfo.resident.name);
+        setMyComplaints(complaints);
+      }
+    } catch (error) {
+      console.error("Failed to load complaints:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadComplaints();
+  }, []);
 
   const handleDialogChange = (open: boolean) => {
     if (open) {
       navigate("/resident/complaint/new", { replace: true });
     } else {
       navigate("/resident/complaint", { replace: true });
+      // 重新加载数据
+      loadComplaints();
     }
   };
+
+  if (loading) {
+    return <div className="text-center py-12">加载中...</div>;
+  }
 
   return (
     <Fragment>
@@ -543,12 +628,51 @@ export function ResidentComplaintPage() {
           提交投诉建议
         </Button>
 
-        <Card className="p-6">
-          <div className="text-center py-12 text-gray-500">
-            <MessageSquare className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-            <p>暂无投诉记录</p>
-          </div>
-        </Card>
+        <div className="space-y-4">
+          <h3 className="text-gray-900">我的投诉</h3>
+          {myComplaints.map((complaint) => (
+            <Card key={complaint.id} className="p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="text-gray-900">{complaint.type}</h3>
+                    <Badge
+                      variant={
+                        complaint.status === "COMPLETED"
+                          ? "default"
+                          : complaint.status === "PROCESSING"
+                          ? "secondary"
+                          : "outline"
+                      }
+                    >
+                      {complaint.status === "PENDING" && "待处理"}
+                      {complaint.status === "PROCESSING" && "处理中"}
+                      {complaint.status === "COMPLETED" && "已完成"}
+                    </Badge>
+                  </div>
+                  <p className="text-gray-600 mb-3">{complaint.description}</p>
+                  {complaint.reply && (
+                    <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                      <p className="text-sm text-gray-600">
+                        <span className="font-medium">回复：</span>
+                        {complaint.reply}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              {complaint.processedBy && (
+                <div className="flex items-center gap-2 text-sm text-gray-600 pt-4 border-t">
+                  <User className="w-4 h-4" />
+                  <span>处理人：{complaint.processedBy}</span>
+                </div>
+              )}
+            </Card>
+          ))}
+          {myComplaints.length === 0 && (
+            <div className="text-center py-12 text-gray-500">暂无投诉记录</div>
+          )}
+        </div>
       </div>
 
       <SubmitComplaintDialog
@@ -560,6 +684,28 @@ export function ResidentComplaintPage() {
 }
 
 export function ResidentAnnouncementPage() {
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadAnnouncements() {
+      try {
+        const data = await getLatestAnnouncements();
+        setAnnouncements(data);
+      } catch (error) {
+        console.error("Failed to load announcements:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadAnnouncements();
+  }, []);
+
+  if (loading) {
+    return <div className="text-center py-12">加载中...</div>;
+  }
+
   return (
     <div className="space-y-4">
       {announcements.map((announcement) => (
@@ -571,25 +717,60 @@ export function ResidentAnnouncementPage() {
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
                 <h3 className="text-gray-900">{announcement.title}</h3>
-                <Badge variant="outline">{announcement.type}</Badge>
+                <Badge variant="outline">{announcement.targetScope}</Badge>
               </div>
               <p className="text-gray-600 mb-3">{announcement.content}</p>
-              <p className="text-sm text-gray-500">{announcement.date}</p>
+              <p className="text-sm text-gray-500">
+                {announcement.publishAt ? new Date(announcement.publishAt).toLocaleString() : ''}
+              </p>
             </div>
           </div>
         </Card>
       ))}
+      {announcements.length === 0 && (
+        <div className="text-center py-12 text-gray-500">暂无公告</div>
+      )}
     </div>
   );
 }
 
 export function ResidentProfilePage() {
   const navigate = useNavigate();
+  const [residentInfo, setResidentInfo] = useState<ResidentInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadProfile() {
+      try {
+        const userInfo = await getCurrentUser();
+        if (userInfo.resident) {
+          setResidentInfo({
+            name: userInfo.resident.name,
+            phone: userInfo.resident.phone,
+            building: userInfo.resident.building,
+            unit: userInfo.resident.unit,
+            roomNumber: userInfo.resident.roomNumber,
+            area: userInfo.resident.area,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to load profile:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadProfile();
+  }, []);
 
   const handleLogout = () => {
-    clearResidentSession();
+    clearAuth();
     navigate("/", { replace: true });
   };
+
+  if (loading || !residentInfo) {
+    return <div className="text-center py-12">加载中...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -612,7 +793,7 @@ export function ResidentProfilePage() {
             <div>
               <p className="text-sm text-gray-500">房屋地址</p>
               <p className="text-gray-900">
-                {residentInfo.building} {residentInfo.unit} {residentInfo.room}
+                {residentInfo.building} {residentInfo.unit} {residentInfo.roomNumber}
               </p>
             </div>
           </div>
@@ -632,28 +813,6 @@ export function ResidentProfilePage() {
               <p className="text-gray-900">{residentInfo.phone}</p>
             </div>
           </div>
-
-          <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-            <Car className="w-5 h-5 text-gray-500" />
-            <div>
-              <p className="text-sm text-gray-500">车辆信息</p>
-              <p className="text-gray-900">京A12345 - 丰田凯美瑞</p>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      <Card className="p-6">
-        <h3 className="text-gray-900 mb-4">账号设置</h3>
-        <div className="space-y-3">
-          <button className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-            <span className="text-gray-900">修改密码</span>
-            <ChevronRight className="w-5 h-5 text-gray-400" />
-          </button>
-          <button className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-            <span className="text-gray-900">绑定手机</span>
-            <ChevronRight className="w-5 h-5 text-gray-400" />
-          </button>
         </div>
       </Card>
 

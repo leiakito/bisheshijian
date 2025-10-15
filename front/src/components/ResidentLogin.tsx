@@ -6,69 +6,56 @@ import { Card } from "./ui/card";
 import { Home, ArrowLeft } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import type { Location } from "react-router-dom";
-import { setResidentSession } from "../utils/sessionManager";
+import { login } from "../services/authService";
+import { clearAuth } from "../utils/tokenManager";
 
 export function ResidentLogin() {
-  const [phone, setPhone] = useState("");
-  const [code, setCode] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [codeSent, setCodeSent] = useState(false);
-  const [countdown, setCountdown] = useState(0);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const from =
     (location.state as { from?: Location } | undefined)?.from?.pathname ??
     "/resident/home";
 
-  const handleSendCode = () => {
-    if (!phone) {
-      setError("请输入手机号");
-      return;
-    }
-
-    if (!/^1[3-9]\d{9}$/.test(phone)) {
-      setError("请输入正确的手机号");
-      return;
-    }
-
-    setError("");
-    setCodeSent(true);
-    setCountdown(60);
-
-    // 模拟发送验证码
-    console.log("发送验证码到:", phone);
-
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (!phone) {
-      setError("请输入手机号");
+    if (!username || !password) {
+      setError("请输入用户名和密码");
       return;
     }
 
-    if (!code) {
-      setError("请输入验证码");
+    if (password.length < 6) {
+      setError("密码长度至少为6位");
       return;
     }
 
-    // 模拟验证码验证（演示用）
-    if (code.length === 6) {
-      setResidentSession({ name: "智慧业主", phone });
+    setLoading(true);
+
+    try {
+      // 调用后端登录API
+      const response = await login({ username, password });
+
+      // 验证用户是否有普通用户权限（仅允许USER角色）
+      if (!response.roles.includes("ROLE_USER")) {
+        // 角色不匹配，清除已保存的token
+        clearAuth();
+        setError("您没有业主权限，请使用业主账号登录");
+        setLoading(false);
+        return;
+      }
+
+      // 登录成功，跳转到业主服务平台
       navigate(from, { replace: true });
-    } else {
-      setError("验证码格式错误");
+    } catch (err) {
+      console.error("Login error:", err);
+      setError(err instanceof Error ? err.message : "登录失败，请检查用户名和密码");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -102,40 +89,27 @@ export function ResidentLogin() {
             {/* 登录表单 */}
             <form onSubmit={handleLogin} className="space-y-6">
               <div>
-                <Label htmlFor="phone">手机号</Label>
+                <Label htmlFor="username">用户名</Label>
                 <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="请输入手机号"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  id="username"
+                  type="text"
+                  placeholder="请输入用户名"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   className="mt-2"
-                  maxLength={11}
                 />
               </div>
 
               <div>
-                <Label htmlFor="code">验证码</Label>
-                <div className="flex gap-2 mt-2">
-                  <Input
-                    id="code"
-                    type="text"
-                    placeholder="请输入验证码"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    maxLength={6}
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleSendCode}
-                    disabled={countdown > 0}
-                    className="w-28"
-                  >
-                    {countdown > 0 ? `${countdown}秒` : "获取验证码"}
-                  </Button>
-                </div>
+                <Label htmlFor="password">密码</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="请输入密码"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="mt-2"
+                />
               </div>
 
               {error && (
@@ -147,23 +121,29 @@ export function ResidentLogin() {
               <Button
                 type="submit"
                 className="w-full bg-blue-600 hover:bg-blue-700"
+                disabled={loading}
               >
-                登录
+                {loading ? "登录中..." : "登录"}
               </Button>
             </form>
 
-            {/* 提示信息 */}
-            <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-              <p className="text-sm text-blue-800">
-                <span className="block">演示手机号：138****1234</span>
-                <span className="block mt-1">验证码：任意6位数字</span>
-              </p>
-            </div>
+          {/* 返回主页按钮 */}
+          <div>
+            <Button
+              type="button"
+              className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800"
+              onClick={() => {
+                window.location.href = "http://localhost:3000/";
+              }}
+            >
+              返回主页
+            </Button>
+          </div>
 
             {/* 帮助信息 */}
             <div className="mt-6 text-center text-sm text-gray-500">
-              <p>首次登录将自动注册账号</p>
-              <p className="mt-1">如有问题请联系物业：400-123-4567</p>
+              <p>如忘记密码，请联系物业管理员</p>
+              <p className="mt-1">服务热线：400-123-4567</p>
             </div>
           </Card>
         </div>

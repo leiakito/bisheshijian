@@ -2,10 +2,13 @@ package com.propertymgmt.property.service.impl;
 
 import com.propertymgmt.property.dto.ResidentRequest;
 import com.propertymgmt.property.model.Resident;
+import com.propertymgmt.property.model.User;
 import com.propertymgmt.property.repository.ResidentRepository;
+import com.propertymgmt.property.repository.UserRepository;
 import com.propertymgmt.property.service.ResidentService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -17,9 +20,11 @@ import org.springframework.util.StringUtils;
 public class ResidentServiceImpl implements ResidentService {
 
     private final ResidentRepository residentRepository;
+    private final UserRepository userRepository;
 
-    public ResidentServiceImpl(ResidentRepository residentRepository) {
+    public ResidentServiceImpl(ResidentRepository residentRepository, UserRepository userRepository) {
         this.residentRepository = residentRepository;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -63,7 +68,15 @@ public class ResidentServiceImpl implements ResidentService {
 
     @Override
     public void delete(Long id) {
-        residentRepository.deleteById(id);
+        Resident resident = residentRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("住户不存在"));
+
+        List<User> relatedUsers = userRepository.findAllByResidentId(id);
+        for (User user : relatedUsers) {
+            user.setResident(null);
+        }
+
+        residentRepository.delete(resident);
     }
 
     private void applyRequest(ResidentRequest request, Resident resident) {
